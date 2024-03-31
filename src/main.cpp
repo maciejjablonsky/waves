@@ -7,7 +7,7 @@
 #include <glm/vec4.hpp>
 
 #include <vk/instance.hpp>
-#include <vk/physical_device.hpp>
+#include <vk/device.hpp>
 
 namespace wf
 {
@@ -16,7 +16,7 @@ class app
   private:
     window window_;
     vk::instance vk_instance_;
-    vk::physical_device vk_physical_device_{vk_instance_};
+    vk::device vk_physical_device_{vk_instance_};
 
   public:
     app()

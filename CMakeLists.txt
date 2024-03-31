@@ -8,14 +8,14 @@ target_sources(waves_field
         src/main.cpp
         src/window.cpp
         src/vk/instance.cpp
-        src/vk/physical_device.cpp
+        src/vk/device.cpp
     PUBLIC
     FILE_SET HEADERS
     BASE_DIRS src
     FILES
         src/window.hpp
         src/vk/instance.hpp
-        src/vk/physical_device.hpp
+        src/vk/device.hpp
 )
 
 find_package(glfw3 REQUIRED CONFIG)

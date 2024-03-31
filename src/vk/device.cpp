@@ -1,10 +1,10 @@
 #include <algorithm>
 #include <fmt/color.h>
 #include <fmt/format.h>
+#include <optional>
 #include <print>
 #include <vector>
-#include <vk/physical_device.hpp>
-#include <optional>
+#include <vk/device.hpp>
 
 namespace wf::vk
 {
@@ -14,7 +14,7 @@ struct queue_family_indices
 
     bool is_complete() const
     {
-        return graphics_family.has_value(); 
+        return graphics_family.has_value();
     }
 };
 
@@ -33,16 +33,15 @@ queue_family_indices find_queue_families(VkPhysicalDevice device)
     {
         if (queue_family.queueFlags & VK_QUEUE_GRAPHICS_BIT)
         {
-            indices.graphics_family = i; 
+            indices.graphics_family = i;
         }
 
         if (indices.is_complete())
         {
-            break; 
+            break;
         }
         ++i;
     }
-
 
     return indices;
 }
@@ -61,10 +60,10 @@ void present_device(VkPhysicalDevice device)
     vkGetPhysicalDeviceFeatures(device, std::addressof(device_features));
 
     auto tag = fmt::format(fg(fmt::color::cyan), "vk physical device");
-    fmt::println("[{}] {}",tag, device_properties.deviceName);
+    fmt::println("[{}] {}", tag, device_properties.deviceName);
 }
 
-physical_device::physical_device(instance& instance) : instance_{instance}
+void device::pick_physical_device_()
 {
     uint32_t device_count{};
     vkEnumeratePhysicalDevices(
@@ -91,5 +90,60 @@ physical_device::physical_device(instance& instance) : instance_{instance}
     }
 
     present_device(physical_device_);
+}
+
+void device::create_logical_device_()
+{
+    queue_family_indices indices = find_queue_families(physical_device_);
+
+    VkDeviceQueueCreateInfo queue_create_info{};
+    queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+    queue_create_info.queueFamilyIndex = indices.graphics_family.value();
+    queue_create_info.queueCount       = 1;
+    float queue_priority               = 1.f;
+    queue_create_info.pQueuePriorities = std::addressof(queue_priority);
+
+    VkPhysicalDeviceFeatures device_features{};
+
+    VkDeviceCreateInfo create_info{};
+    create_info.sType                 = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+    create_info.pQueueCreateInfos     = std::addressof(queue_create_info);
+    create_info.queueCreateInfoCount  = 1;
+    create_info.pEnabledFeatures      = std::addressof(device_features);
+    create_info.enabledExtensionCount = 0;
+
+    if (validation_layers_enabled)
+    {
+        create_info.enabledLayerCount =
+            static_cast<uint32_t>(validation_layers.size());
+        create_info.ppEnabledLayerNames = validation_layers.data();
+    }
+    else
+    {
+        create_info.enabledLayerCount = 0;
+    }
+    if (vkCreateDevice(physical_device_,
+                       std::addressof(create_info),
+                       nullptr,
+                       std::addressof(logical_device_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error{"failed to create logical device!"};
+    }
+
+    vkGetDeviceQueue(logical_device_,
+                     indices.graphics_family.value(),
+                     0,
+                     std::addressof(graphics_queue_));
+}
+
+device::device(instance& instance) : instance_{instance}
+{
+    pick_physical_device_();
+    create_logical_device_();
+}
+
+device::~device() noexcept
+{
+    vkDestroyDevice(logical_device_, nullptr);
 }
 } // namespace wf::vk
