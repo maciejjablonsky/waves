@@ -3,6 +3,7 @@ param(
 )
 
 Write-Host "Running Conan install..."
+conan install . -pr:h dev-msvc -b missing -s build_type=Release
 conan install . -pr:h dev-msvc -b missing -s build_type=Debug
 
 if ($installOnly) {

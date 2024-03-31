@@ -1,6 +1,23 @@
-include(default)
+[settings]
+os=Windows
+arch=x86_64
+compiler=msvc
+compiler.cppstd=23
+compiler.runtime=dynamic
+compiler.version=193
+build_type=Release
+
 [conf]
 tools.cmake.cmaketoolchain:generator=Ninja Multi-Config
+tools.env.virtualenv:powershell=True
+
 [tool_requires]
-cmake/3.29.0
+cmake/3.29.3
 ninja/1.11.1
+
+[buildenv]
+PATH=+(path){{ os.path.join(os.environ['VULKAN_SDK'], 'Bin') if "VULKAN_SDK" in os.environ }}
+
+[runenv]
+VK_INSTANCE_LAYERS+=VK_LAYER_LUNARG_api_dump
+VK_INSTANCE_LAYERS+=VK_LAYER_KHRONOS_validation
