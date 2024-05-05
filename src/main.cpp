@@ -7,7 +7,6 @@
 #include <glm/vec4.hpp>
 
 #include <vk/instance.hpp>
-#include <vk/device.hpp>
 
 namespace wf
 {
@@ -15,20 +14,19 @@ class app
 {
   private:
     window window_;
-    vk::instance vk_instance_;
-    vk::device vk_physical_device_{vk_instance_};
+    vk::instance vk_instance_{window_};
 
   public:
     app()
     {
-        //glm::mat4 matrix;
-        //glm::vec4 vec;
-        //auto test = matrix * vec;
+        // glm::mat4 matrix;
+        // glm::vec4 vec;
+        // auto test = matrix * vec;
 
-        //while (!glfwWindowShouldClose(window_))
+        // while (!glfwWindowShouldClose(window_))
         //{
-        //    glfwPollEvents();
-        //}
+        //     glfwPollEvents();
+        // }
     }
 };
 } // namespace wf
