@@ -17,6 +17,8 @@ constexpr bool validation_layers_enabled = false;
 constexpr bool validation_layers_enabled = true;
 #endif
 
+constexpr std::array device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+
 struct queue_family_indices
 {
     std::optional<uint32_t> graphics_family;
@@ -26,6 +28,13 @@ struct queue_family_indices
     {
         return graphics_family.has_value() and present_family.has_value();
     }
+};
+
+struct swap_chain_support_details
+{
+    VkSurfaceCapabilitiesKHR capabilities;
+    std::vector<VkSurfaceFormatKHR> formats;
+    std::vector<VkPresentModeKHR> present_modes;
 };
 
 class instance : wf::non_copyable
@@ -39,10 +48,16 @@ class instance : wf::non_copyable
     VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
     VkDevice logical_device_          = VK_NULL_HANDLE;
 
-    VkQueue graphics_queue_ = VK_NULL_HANDLE;
-    VkQueue present_queue_  = VK_NULL_HANDLE;
+    VkQueue graphics_queue_    = VK_NULL_HANDLE;
+    VkQueue present_queue_     = VK_NULL_HANDLE;
+    VkSwapchainKHR swap_chain_ = VK_NULL_HANDLE;
+    std::vector<VkImage> swap_chain_images_;
+    VkFormat swap_chain_image_format_;
+    VkExtent2D swap_chain_extent_;
 
     void create_instance_();
+    swap_chain_support_details query_swap_chain_support_(
+        VkPhysicalDevice device);
     bool check_validation_layer_support_();
     void set_debug_messenger_();
     void create_surface_();
@@ -51,6 +66,10 @@ class instance : wf::non_copyable
     queue_family_indices find_queue_families_(VkPhysicalDevice device);
 
     bool is_physical_device_suitable_(VkPhysicalDevice device);
+    VkExtent2D choose_swap_extent_(
+        const VkSurfaceCapabilitiesKHR& capabilities);
+    bool check_device_extension_support_(VkPhysicalDevice device);
+    void create_swap_chain_();
 
   public:
     instance(window& window);
