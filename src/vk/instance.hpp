@@ -54,6 +54,7 @@ class instance : wf::non_copyable
     std::vector<VkImage> swap_chain_images_;
     VkFormat swap_chain_image_format_;
     VkExtent2D swap_chain_extent_;
+    std::vector<VkImageView> swap_chain_image_views_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -70,6 +71,7 @@ class instance : wf::non_copyable
         const VkSurfaceCapabilitiesKHR& capabilities);
     bool check_device_extension_support_(VkPhysicalDevice device);
     void create_swap_chain_();
+    void create_image_views_();
 
   public:
     instance(window& window);
