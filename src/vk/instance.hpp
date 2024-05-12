@@ -72,6 +72,8 @@ class instance : wf::non_copyable
     bool check_device_extension_support_(VkPhysicalDevice device);
     void create_swap_chain_();
     void create_image_views_();
+    VkShaderModule create_shader_module_(const std::vector<std::byte>& code);
+    void create_grahpics_pipeline_();
 
   public:
     instance(window& window);

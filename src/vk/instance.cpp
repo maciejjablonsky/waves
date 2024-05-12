@@ -230,6 +230,7 @@ instance::instance(window& window) : window_{window}
     pick_physical_device_();
     create_logical_device_();
     create_swap_chain_();
+    create_grahpics_pipeline_();
 }
 
 void instance::create_instance_()
@@ -529,6 +530,55 @@ void instance::create_image_views_()
             throw std::runtime_error("failed to create image views!");
         }
     }
+}
+
+struct vk_shader_module
+{
+    VkShaderModule module;
+    VkDevice device;
+    vk_shader_module(VkDevice device, const std::vector<std::byte>& code)
+        : device{device}
+    {
+        VkShaderModuleCreateInfo create_info{};
+        create_info.sType    = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
+        create_info.codeSize = code.size();
+        create_info.pCode    = reinterpret_cast<const uint32_t*>(code.data());
+
+        if (vkCreateShaderModule(device,
+                                 std::addressof(create_info),
+                                 nullptr,
+                                 std::addressof(module)) != VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create shader module!");
+        }
+    }
+
+    ~vk_shader_module()
+    {
+        vkDestroyShaderModule(device, module, nullptr);
+    }
+};
+
+void instance::create_grahpics_pipeline_()
+{
+    vk_shader_module vert_shader_module(
+        logical_device_, load_binary_from_file("../shaders/shader.vert.spv"));
+    vk_shader_module frag_shader_module(
+        logical_device_, load_binary_from_file("../shaders/shader.frag.spv"));
+
+    VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
+    vert_shader_stage_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vert_shader_stage_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
+    vert_shader_stage_info.module = vert_shader_module.module;
+    vert_shader_stage_info.pName  = "main";
+
+	VkPipelineShaderStageCreateInfo frag_shader_stage_info{};
+    frag_shader_stage_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    frag_shader_stage_info.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
+    frag_shader_stage_info.module = frag_shader_module.module;
+    frag_shader_stage_info.pName  = "main";
+
+    std::array shader_stages = {vert_shader_stage_info, frag_shader_stage_info};
 }
 
 void present_device(VkPhysicalDevice device)
