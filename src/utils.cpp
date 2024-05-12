@@ -16,6 +16,21 @@ std::string load_text_from_file(const std::filesystem::path& path)
     return text;
 }
 
+std::vector<std::byte> load_binary_from_file(const std::filesystem::path& path)
+{
+    std::ifstream file{path, std::ios::binary | std::ios::ate};
+    if (!file.is_open())
+    {
+        throw std::runtime_error("Failed to open file");
+    }
+    file.exceptions(std::istream::failbit | std::ifstream::badbit);
+    auto size = static_cast<size_t>(file.tellg());
+    file.seekg(std::ios::beg);
+    std::vector<std::byte> data{size};
+    file.read(reinterpret_cast<char*>(data.data()), size);
+    return data;
+}
+
 scoped_file::~scoped_file()
 {
     if (fp_)
@@ -35,7 +50,7 @@ scoped_file::operator bool()
 
 unimplemented_error::unimplemented_error(const std::string& message)
     : message_{message}
-{ 
+{
 }
 const char* unimplemented_error::what() const
 {
