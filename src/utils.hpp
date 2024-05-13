@@ -123,6 +123,11 @@ template <std::floating_point T> constexpr bool is_equal(T&& a, T&& b)
     return std::abs(a - b) < std::numeric_limits<T>::epsilon() * std::abs(a);
 }
 
+template <std::integral To, std::integral From> To to(From&& from)
+{
+    // TODO: add runtime checks in case signed/unsigned conversions
+	return static_cast<To>(from);
+}
 } // namespace wf
 
 template <> struct fmt::formatter<glm::vec3> : fmt::formatter<std::string>
