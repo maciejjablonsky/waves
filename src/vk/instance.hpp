@@ -56,6 +56,8 @@ class instance : wf::non_copyable
     VkExtent2D swap_chain_extent_;
     std::vector<VkImageView> swap_chain_image_views_;
 
+    VkPipelineLayout pipeline_layout_;
+
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
         VkPhysicalDevice device);
@@ -72,7 +74,6 @@ class instance : wf::non_copyable
     bool check_device_extension_support_(VkPhysicalDevice device);
     void create_swap_chain_();
     void create_image_views_();
-    VkShaderModule create_shader_module_(const std::vector<std::byte>& code);
     void create_grahpics_pipeline_();
 
   public:

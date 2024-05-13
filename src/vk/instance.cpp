@@ -285,6 +285,7 @@ instance::operator VkInstance()
 }
 instance::~instance()
 {
+    vkDestroyPipelineLayout(logical_device_, pipeline_layout_, nullptr);
     for (auto image_view : swap_chain_image_views_)
     {
         vkDestroyImageView(logical_device_, image_view, nullptr);
@@ -567,18 +568,123 @@ void instance::create_grahpics_pipeline_()
         logical_device_, load_binary_from_file("../shaders/shader.frag.spv"));
 
     VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
-    vert_shader_stage_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    vert_shader_stage_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     vert_shader_stage_info.stage  = VK_SHADER_STAGE_VERTEX_BIT;
     vert_shader_stage_info.module = vert_shader_module.module;
     vert_shader_stage_info.pName  = "main";
 
-	VkPipelineShaderStageCreateInfo frag_shader_stage_info{};
-    frag_shader_stage_info.sType  = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
+    VkPipelineShaderStageCreateInfo frag_shader_stage_info{};
+    frag_shader_stage_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     frag_shader_stage_info.stage  = VK_SHADER_STAGE_FRAGMENT_BIT;
     frag_shader_stage_info.module = frag_shader_module.module;
     frag_shader_stage_info.pName  = "main";
 
     std::array shader_stages = {vert_shader_stage_info, frag_shader_stage_info};
+
+    std::array dynamic_states = {VK_DYNAMIC_STATE_VIEWPORT,
+                                 VK_DYNAMIC_STATE_SCISSOR};
+
+    VkPipelineDynamicStateCreateInfo dynamic_state{};
+    dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
+    dynamic_state.dynamicStateCount = to<uint32_t>(dynamic_states.size());
+    dynamic_state.pDynamicStates    = dynamic_states.data();
+
+    VkPipelineVertexInputStateCreateInfo vertex_input_info{};
+    vertex_input_info.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
+    vertex_input_info.vertexBindingDescriptionCount   = 0;
+    vertex_input_info.vertexAttributeDescriptionCount = 0;
+
+    VkPipelineInputAssemblyStateCreateInfo input_assembly{};
+    input_assembly.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
+    input_assembly.topology               = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
+    input_assembly.primitiveRestartEnable = VK_FALSE;
+
+    VkViewport viewport{};
+    viewport.x        = 0.f;
+    viewport.y        = 0.f;
+    viewport.width    = static_cast<float>(swap_chain_extent_.width);
+    viewport.height   = static_cast<float>(swap_chain_extent_.height);
+    viewport.minDepth = 0.f;
+    viewport.maxDepth = 1.f;
+
+    VkRect2D scissor{};
+    scissor.offset = {0, 0};
+    scissor.extent = swap_chain_extent_;
+
+    VkPipelineViewportStateCreateInfo viewport_state{};
+    viewport_state.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
+    viewport_state.viewportCount = 1;
+    viewport_state.pViewports    = std::addressof(viewport);
+    viewport_state.scissorCount  = 1;
+    viewport_state.pScissors     = std::addressof(scissor);
+
+    VkPipelineRasterizationStateCreateInfo rasterizer{};
+    rasterizer.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterizer.depthClampEnable        = VK_FALSE;
+    rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;
+    rasterizer.lineWidth               = 1.f;
+    rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;
+    rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.depthBiasEnable         = VK_FALSE;
+    rasterizer.depthBiasConstantFactor = 0.f;
+    rasterizer.depthBiasClamp          = 0.f;
+    rasterizer.depthBiasSlopeFactor    = 0.f;
+
+    VkPipelineMultisampleStateCreateInfo multisampling{};
+    multisampling.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisampling.sampleShadingEnable   = VK_FALSE;
+    multisampling.rasterizationSamples  = VK_SAMPLE_COUNT_1_BIT;
+    multisampling.minSampleShading      = 1.0;
+    multisampling.pSampleMask           = nullptr;
+    multisampling.alphaToCoverageEnable = VK_FALSE;
+    multisampling.alphaToOneEnable      = VK_FALSE;
+
+    VkPipelineColorBlendAttachmentState color_blend_attachment{};
+    color_blend_attachment.colorWriteMask =
+        VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT |
+        VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
+
+    color_blend_attachment.blendEnable         = VK_FALSE;
+    color_blend_attachment.srcColorBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_blend_attachment.dstColorBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.colorBlendOp        = VK_BLEND_OP_ADD;
+    color_blend_attachment.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
+    color_blend_attachment.dstAlphaBlendFactor = VK_BLEND_FACTOR_ZERO;
+    color_blend_attachment.alphaBlendOp        = VK_BLEND_OP_ADD;
+
+    VkPipelineColorBlendStateCreateInfo color_blending{};
+    color_blending.sType =
+        VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO;
+    color_blending.logicOpEnable     = VK_FALSE;
+    color_blending.logicOp           = VK_LOGIC_OP_COPY;
+    color_blending.attachmentCount   = 1;
+    color_blending.pAttachments      = std::addressof(color_blend_attachment);
+    color_blending.blendConstants[0] = 0.f;
+    color_blending.blendConstants[1] = 0.f;
+    color_blending.blendConstants[2] = 0.f;
+    color_blending.blendConstants[3] = 0.f;
+
+    VkPipelineLayoutCreateInfo pipeline_layout_info{};
+    pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
+    pipeline_layout_info.setLayoutCount         = 0;
+    pipeline_layout_info.pSetLayouts            = nullptr;
+    pipeline_layout_info.pushConstantRangeCount = 0;
+    pipeline_layout_info.pPushConstantRanges    = nullptr;
+
+    if (vkCreatePipelineLayout(logical_device_,
+                               std::addressof(pipeline_layout_info),
+                               nullptr,
+                               std::addressof(pipeline_layout_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create pipeline layout!");
+    }
 }
 
 void present_device(VkPhysicalDevice device)
