@@ -233,6 +233,7 @@ instance::instance(window& window) : window_{window}
     create_render_pass_();
     create_grahpics_pipeline_();
     create_framebuffers_();
+    create_command_pool_();
 }
 
 void instance::create_instance_()
@@ -287,6 +288,7 @@ instance::operator VkInstance()
 }
 instance::~instance()
 {
+    vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
     std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
         vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
     });
@@ -783,6 +785,25 @@ void instance::create_framebuffers_()
         {
             throw std::runtime_error("failed to create framebuffer!");
         }
+    }
+}
+
+void instance::create_command_pool_()
+{
+    queue_family_indices queue_family_indices =
+        find_queue_families_(physical_device_);
+
+    VkCommandPoolCreateInfo pool_info{};
+    pool_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
+    pool_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
+    pool_info.queueFamilyIndex = queue_family_indices.graphics_family.value();
+
+    if (vkCreateCommandPool(logical_device_,
+                            std::addressof(pool_info),
+                            nullptr,
+                            std::addressof(command_pool_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create command pool!");
     }
 }
 
