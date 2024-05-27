@@ -3,8 +3,8 @@ param(
 )
 
 Write-Host "Running Conan install..."
-conan install . -pr:h dev-msvc -b missing -s build_type=Release
-conan install . -pr:h dev-msvc -b missing -s build_type=Debug
+conan install . -pr:h dev-msvc -b missing -s build_type=Release --lockfile=conan.lock
+conan install . -pr:h dev-msvc -b missing -s build_type=Debug --lockfile=conan.lock
 
 if ($installOnly) {
     exit 0
