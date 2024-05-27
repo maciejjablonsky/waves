@@ -56,7 +56,9 @@ class instance : wf::non_copyable
     VkExtent2D swap_chain_extent_;
     std::vector<VkImageView> swap_chain_image_views_;
 
+    VkRenderPass render_pass_;
     VkPipelineLayout pipeline_layout_;
+    VkPipeline graphics_pipeline_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -75,6 +77,7 @@ class instance : wf::non_copyable
     void create_swap_chain_();
     void create_image_views_();
     void create_grahpics_pipeline_();
+    void create_render_pass_();
 
   public:
     instance(window& window);
