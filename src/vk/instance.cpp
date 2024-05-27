@@ -232,6 +232,7 @@ instance::instance(window& window) : window_{window}
     create_swap_chain_();
     create_render_pass_();
     create_grahpics_pipeline_();
+    create_framebuffers_();
 }
 
 void instance::create_instance_()
@@ -286,13 +287,15 @@ instance::operator VkInstance()
 }
 instance::~instance()
 {
+    std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
+        vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
+    });
     vkDestroyPipeline(logical_device_, graphics_pipeline_, nullptr);
     vkDestroyPipelineLayout(logical_device_, pipeline_layout_, nullptr);
     vkDestroyRenderPass(logical_device_, render_pass_, nullptr);
-    for (auto image_view : swap_chain_image_views_)
-    {
+    std::ranges::for_each(swap_chain_image_views_, [this](auto image_view) {
         vkDestroyImageView(logical_device_, image_view, nullptr);
-    }
+    });
     vkDestroySwapchainKHR(logical_device_, swap_chain_, nullptr);
     vkDestroyDevice(logical_device_, nullptr);
     if (validation_layers_enabled)
@@ -753,6 +756,33 @@ void instance::create_render_pass_()
                            std::addressof(render_pass_)) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to create render pass!");
+    }
+}
+
+void instance::create_framebuffers_()
+{
+    swap_chain_framebuffers_.resize(swap_chain_image_views_.size());
+    for (size_t i = 0; i < swap_chain_image_views_.size(); i++)
+    {
+        std::array attachments = {swap_chain_image_views_[i]};
+
+        VkFramebufferCreateInfo framebuffer_info{};
+        framebuffer_info.sType      = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebuffer_info.renderPass = render_pass_;
+        framebuffer_info.attachmentCount = 1;
+        framebuffer_info.pAttachments    = attachments.data();
+        framebuffer_info.width           = swap_chain_extent_.width;
+        framebuffer_info.height          = swap_chain_extent_.height;
+        framebuffer_info.layers          = 1;
+
+        if (vkCreateFramebuffer(logical_device_,
+                                std::addressof(framebuffer_info),
+                                nullptr,
+                                std::addressof(swap_chain_framebuffers_[i])) !=
+            VK_SUCCESS)
+        {
+            throw std::runtime_error("failed to create framebuffer!");
+        }
     }
 }
 

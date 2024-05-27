@@ -59,6 +59,7 @@ class instance : wf::non_copyable
     VkRenderPass render_pass_;
     VkPipelineLayout pipeline_layout_;
     VkPipeline graphics_pipeline_;
+    std::vector<VkFramebuffer> swap_chain_framebuffers_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -78,6 +79,7 @@ class instance : wf::non_copyable
     void create_image_views_();
     void create_grahpics_pipeline_();
     void create_render_pass_();
+    void create_framebuffers_();
 
   public:
     instance(window& window);
