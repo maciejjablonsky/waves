@@ -61,6 +61,7 @@ class instance : wf::non_copyable
     VkPipeline graphics_pipeline_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
     VkCommandPool command_pool_;
+    VkCommandBuffer command_buffer_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -82,6 +83,9 @@ class instance : wf::non_copyable
     void create_render_pass_();
     void create_framebuffers_();
     void create_command_pool_();
+    void create_command_buffer_();
+    void record_command_buffer_(VkCommandBuffer command_buffer,
+                                uint32_t image_index);
 
   public:
     instance(window& window);
