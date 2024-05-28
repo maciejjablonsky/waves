@@ -230,11 +230,13 @@ instance::instance(window& window) : window_{window}
     pick_physical_device_();
     create_logical_device_();
     create_swap_chain_();
+    create_image_views_();
     create_render_pass_();
     create_grahpics_pipeline_();
     create_framebuffers_();
     create_command_pool_();
     create_command_buffer_();
+    create_sync_objects_();
 }
 
 void instance::create_instance_()
@@ -287,8 +289,56 @@ instance::operator VkInstance()
 {
     return instance_;
 }
+
+void instance::draw_frame()
+{
+    vkWaitForFences(logical_device_,
+                    1,
+                    std::addressof(in_flight_fence_),
+                    VK_TRUE,
+                    UINT64_MAX);
+    vkResetFences(logical_device_, 1, std::addressof(in_flight_fence_));
+
+    uint32_t image_index;
+    VkResult result = vkAcquireNextImageKHR(logical_device_,
+                                            swap_chain_,
+                                            UINT64_MAX,
+                                            image_available_semaphore_,
+                                            VK_NULL_HANDLE,
+                                            std::addressof(image_index));
+
+    vkResetCommandBuffer(command_buffer_, 0);
+    record_command_buffer_(command_buffer_, image_index);
+
+    VkSubmitInfo submit_info{};
+    submit_info.sType          = VK_STRUCTURE_TYPE_SUBMIT_INFO;
+    std::array wait_semaphores = {image_available_semaphore_};
+    std::array<VkPipelineStageFlags, 1> wait_stages = {
+        VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
+    submit_info.waitSemaphoreCount = 1;
+    submit_info.pWaitSemaphores    = wait_semaphores.data();
+    submit_info.pWaitDstStageMask  = wait_stages.data();
+    submit_info.commandBufferCount = 1;
+    submit_info.pCommandBuffers    = std::addressof(command_buffer_);
+
+    std::array signal_semaphores     = {render_finished_semaphore_};
+    submit_info.signalSemaphoreCount = 1;
+    submit_info.pSignalSemaphores    = signal_semaphores.data();
+
+    if (vkQueueSubmit(graphics_queue_,
+                      1,
+                      std::addressof(submit_info),
+                      in_flight_fence_) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to submit draw command buffer!");
+    }
+}
+
 instance::~instance()
 {
+    vkDestroySemaphore(logical_device_, image_available_semaphore_, nullptr);
+    vkDestroySemaphore(logical_device_, render_finished_semaphore_, nullptr);
+    vkDestroyFence(logical_device_, in_flight_fence_, nullptr);
     vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
     std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
         vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
@@ -876,6 +926,35 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     if (vkEndCommandBuffer(command_buffer_) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to record command buffer!");
+    }
+}
+
+void instance::create_sync_objects_()
+{
+    VkSemaphoreCreateInfo semaphore_info{};
+    semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
+
+    VkFenceCreateInfo fence_info{};
+    fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
+    fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
+
+    if (vkCreateSemaphore(logical_device_,
+                          std::addressof(semaphore_info),
+                          nullptr,
+                          std::addressof(image_available_semaphore_)) !=
+            VK_SUCCESS or
+        vkCreateSemaphore(logical_device_,
+                          std::addressof(semaphore_info),
+                          nullptr,
+                          std::addressof(render_finished_semaphore_)) !=
+            VK_SUCCESS or
+        vkCreateFence(logical_device_,
+                      std::addressof(fence_info),
+                      nullptr,
+                      std::addressof(in_flight_fence_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error(
+            "failed to create synchronization objects for a frame!");
     }
 }
 

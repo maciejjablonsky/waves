@@ -63,6 +63,10 @@ class instance : wf::non_copyable
     VkCommandPool command_pool_;
     VkCommandBuffer command_buffer_;
 
+    VkSemaphore image_available_semaphore_;
+    VkSemaphore render_finished_semaphore_;
+    VkFence in_flight_fence_;
+
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
         VkPhysicalDevice device);
@@ -86,10 +90,12 @@ class instance : wf::non_copyable
     void create_command_buffer_();
     void record_command_buffer_(VkCommandBuffer command_buffer,
                                 uint32_t image_index);
+    void create_sync_objects_();
 
   public:
     instance(window& window);
     operator VkInstance();
+    void draw_frame();
     ~instance();
 };
 } // namespace wf::vk

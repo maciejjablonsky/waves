@@ -19,14 +19,16 @@ class app
   public:
     app()
     {
-        // glm::mat4 matrix;
-        // glm::vec4 vec;
-        // auto test = matrix * vec;
+        while (!glfwWindowShouldClose(window_))
+        {
+            glfwPollEvents();
+            draw_frame();
+        }
+    }
 
-        // while (!glfwWindowShouldClose(window_))
-        //{
-        //     glfwPollEvents();
-        // }
+    void draw_frame()
+    {
+        vk_instance_.draw_frame();
     }
 };
 } // namespace wf
