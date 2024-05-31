@@ -227,6 +227,7 @@ instance::instance(window& window) : window_{window}
     create_instance_();
     set_debug_messenger_();
     create_surface_();
+
     pick_physical_device_();
     create_logical_device_();
     create_swap_chain_();
@@ -332,6 +333,22 @@ void instance::draw_frame()
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
+
+    VkPresentInfoKHR present_info{};
+    present_info.sType              = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
+    present_info.waitSemaphoreCount = 1;
+    present_info.pWaitSemaphores    = signal_semaphores.data();
+
+    std::array swap_chains      = {swap_chain_};
+    present_info.swapchainCount = 1;
+    present_info.pSwapchains    = swap_chains.data();
+    present_info.pImageIndices  = std::addressof(image_index);
+    vkQueuePresentKHR(present_queue_, std::addressof(present_info));
+}
+
+void instance::wait_device_idle()
+{
+    vkDeviceWaitIdle(logical_device_);
 }
 
 instance::~instance()
@@ -796,12 +813,22 @@ void instance::create_render_pass_()
     subpass.colorAttachmentCount = 1;
     subpass.pColorAttachments    = std::addressof(color_attachment_ref);
 
+    VkSubpassDependency dependency{};
+    dependency.srcSubpass    = VK_SUBPASS_EXTERNAL;
+    dependency.dstSubpass    = 0;
+    dependency.srcStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.srcAccessMask = 0;
+    dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dependency.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT;
+
     VkRenderPassCreateInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
     render_pass_info.attachmentCount = 1;
     render_pass_info.pAttachments    = std::addressof(color_attachment);
     render_pass_info.subpassCount    = 1;
     render_pass_info.pSubpasses      = std::addressof(subpass);
+    render_pass_info.dependencyCount = 1;
+    render_pass_info.pDependencies   = std::addressof(dependency);
 
     if (vkCreateRenderPass(logical_device_,
                            std::addressof(render_pass_info),

@@ -24,6 +24,7 @@ class app
             glfwPollEvents();
             draw_frame();
         }
+        vk_instance_.wait_device_idle();
     }
 
     void draw_frame()

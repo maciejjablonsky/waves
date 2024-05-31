@@ -96,6 +96,7 @@ class instance : wf::non_copyable
     instance(window& window);
     operator VkInstance();
     void draw_frame();
+    void wait_device_idle();
     ~instance();
 };
 } // namespace wf::vk
