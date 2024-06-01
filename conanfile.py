@@ -6,7 +6,6 @@ required_conan_version = ">=2.0.0"
 
 class waves_field(ConanFile):
     name = "waves_field"
-    version = "0.1"
     package_type = "application"
 
     license = "MIT"
