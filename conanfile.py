@@ -14,7 +14,7 @@ class waves_field(ConanFile):
 
     settings = "os", "compiler", "build_type", "arch"
 
-    exports_sources = "CMakeLists.txt", "src/*"
+    exports_sources = "CMakeLists.txt", "src/*", "shaders/*"
 
     default_options = {
         'boost/*:header_only': True
