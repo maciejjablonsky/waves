@@ -2,6 +2,8 @@ from conan import ConanFile
 from conan.tools.cmake import CMakeToolchain, CMake, cmake_layout, CMakeDeps
 import os
 
+required_conan_version = ">=2.0.0"
+
 class waves_field(ConanFile):
     name = "waves_field"
     version = "0.1"
