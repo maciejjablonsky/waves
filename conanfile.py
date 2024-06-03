@@ -40,6 +40,10 @@ class waves_field(ConanFile):
         deps = CMakeDeps(self)
         deps.generate()
         tc = CMakeToolchain(self)
+
+        if self.settings.compiler == "msvc" and self.settings.build_type == 'Release':
+            tc.extra_cxxflags.extend(['/O2', '/Oi', '/Ot', '/Oy', '/Ob2'])
+            tc.extra_exelinkflags.extend(['/LTCG'])
         tc.generate()
 
     def build(self):
