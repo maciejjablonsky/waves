@@ -21,6 +21,7 @@ constexpr bool validation_layers_enabled = true;
 #endif
 
 constexpr std::array device_extensions = {VK_KHR_SWAPCHAIN_EXTENSION_NAME};
+constexpr int max_frames_in_flight     = 2;
 
 struct queue_family_indices
 {
@@ -64,11 +65,12 @@ export class instance : wf::non_copyable
     VkPipeline graphics_pipeline_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
     VkCommandPool command_pool_;
-    VkCommandBuffer command_buffer_;
+    std::vector<VkCommandBuffer> command_buffers_;
 
-    VkSemaphore image_available_semaphore_;
-    VkSemaphore render_finished_semaphore_;
-    VkFence in_flight_fence_;
+    std::vector<VkSemaphore> image_available_semaphores_;
+    std::vector<VkSemaphore> render_finished_semaphores_;
+    std::vector<VkFence> in_flight_fences_;
+    uint32_t current_frame_ = 0;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -90,7 +92,7 @@ export class instance : wf::non_copyable
     void create_render_pass_();
     void create_framebuffers_();
     void create_command_pool_();
-    void create_command_buffer_();
+    void create_command_buffers_();
     void record_command_buffer_(VkCommandBuffer command_buffer,
                                 uint32_t image_index);
     void create_sync_objects_();

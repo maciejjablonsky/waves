@@ -233,7 +233,7 @@ instance::instance(window& window) : window_{window}
     create_grahpics_pipeline_();
     create_framebuffers_();
     create_command_pool_();
-    create_command_buffer_();
+    create_command_buffers_();
     create_sync_objects_();
 }
 
@@ -292,41 +292,45 @@ void instance::draw_frame()
 {
     vkWaitForFences(logical_device_,
                     1,
-                    std::addressof(in_flight_fence_),
+                    std::addressof(in_flight_fences_[current_frame_]),
                     VK_TRUE,
                     UINT64_MAX);
-    vkResetFences(logical_device_, 1, std::addressof(in_flight_fence_));
+    vkResetFences(
+        logical_device_, 1, std::addressof(in_flight_fences_[current_frame_]));
 
     uint32_t image_index;
-    VkResult result = vkAcquireNextImageKHR(logical_device_,
-                                            swap_chain_,
-                                            UINT64_MAX,
-                                            image_available_semaphore_,
-                                            VK_NULL_HANDLE,
-                                            std::addressof(image_index));
+    VkResult result =
+        vkAcquireNextImageKHR(logical_device_,
+                              swap_chain_,
+                              UINT64_MAX,
+                              image_available_semaphores_[current_frame_],
+                              VK_NULL_HANDLE,
+                              std::addressof(image_index));
 
-    vkResetCommandBuffer(command_buffer_, 0);
-    record_command_buffer_(command_buffer_, image_index);
+    vkResetCommandBuffer(command_buffers_[current_frame_], 0);
+    record_command_buffer_(command_buffers_[current_frame_], image_index);
 
     VkSubmitInfo submit_info{};
     submit_info.sType          = VK_STRUCTURE_TYPE_SUBMIT_INFO;
-    std::array wait_semaphores = {image_available_semaphore_};
+    std::array wait_semaphores = {image_available_semaphores_[current_frame_]};
     std::array<VkPipelineStageFlags, 1> wait_stages = {
         VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
     submit_info.waitSemaphoreCount = 1;
     submit_info.pWaitSemaphores    = wait_semaphores.data();
     submit_info.pWaitDstStageMask  = wait_stages.data();
     submit_info.commandBufferCount = 1;
-    submit_info.pCommandBuffers    = std::addressof(command_buffer_);
+    submit_info.pCommandBuffers =
+        std::addressof(command_buffers_[current_frame_]);
 
-    std::array signal_semaphores     = {render_finished_semaphore_};
+    std::array signal_semaphores = {
+        render_finished_semaphores_[current_frame_]};
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores    = signal_semaphores.data();
 
     if (vkQueueSubmit(graphics_queue_,
                       1,
                       std::addressof(submit_info),
-                      in_flight_fence_) != VK_SUCCESS)
+                      in_flight_fences_[current_frame_]) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to submit draw command buffer!");
     }
@@ -341,6 +345,8 @@ void instance::draw_frame()
     present_info.pSwapchains    = swap_chains.data();
     present_info.pImageIndices  = std::addressof(image_index);
     vkQueuePresentKHR(present_queue_, std::addressof(present_info));
+
+    current_frame_ = (current_frame_ + 1) % max_frames_in_flight;
 }
 
 void instance::wait_device_idle()
@@ -350,9 +356,15 @@ void instance::wait_device_idle()
 
 instance::~instance()
 {
-    vkDestroySemaphore(logical_device_, image_available_semaphore_, nullptr);
-    vkDestroySemaphore(logical_device_, render_finished_semaphore_, nullptr);
-    vkDestroyFence(logical_device_, in_flight_fence_, nullptr);
+    std::ranges::for_each(render_finished_semaphores_, [this](auto semaphore) {
+        vkDestroySemaphore(logical_device_, semaphore, nullptr);
+    });
+    std::ranges::for_each(image_available_semaphores_, [this](auto semaphore) {
+        vkDestroySemaphore(logical_device_, semaphore, nullptr);
+    });
+    std::ranges::for_each(in_flight_fences_, [this](auto fence) {
+        vkDestroyFence(logical_device_, fence, nullptr);
+    });
     vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
     std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
         vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
@@ -882,17 +894,18 @@ void instance::create_command_pool_()
     }
 }
 
-void instance::create_command_buffer_()
+void instance::create_command_buffers_()
 {
+    command_buffers_.resize(max_frames_in_flight);
     VkCommandBufferAllocateInfo alloc_info{};
     alloc_info.sType       = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = command_pool_;
     alloc_info.level       = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = 1;
+    alloc_info.commandBufferCount = wf::to<uint32_t>(command_buffers_.size());
 
     if (vkAllocateCommandBuffers(logical_device_,
                                  std::addressof(alloc_info),
-                                 std::addressof(command_buffer_)) != VK_SUCCESS)
+                                 command_buffers_.data()) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to allocate command buffers!");
     }
@@ -906,7 +919,7 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     begin_info.flags            = 0;
     begin_info.pInheritanceInfo = nullptr;
 
-    if (vkBeginCommandBuffer(command_buffer_, std::addressof(begin_info)) !=
+    if (vkBeginCommandBuffer(command_buffer, std::addressof(begin_info)) !=
         VK_SUCCESS)
     {
         throw std::runtime_error("failed to begin recording command buffer!");
@@ -922,12 +935,12 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
 
     render_pass_info.clearValueCount = 1;
     render_pass_info.pClearValues    = std::addressof(clear_color);
-    vkCmdBeginRenderPass(command_buffer_,
+    vkCmdBeginRenderPass(command_buffer,
                          std::addressof(render_pass_info),
                          VK_SUBPASS_CONTENTS_INLINE);
 
     vkCmdBindPipeline(
-        command_buffer_, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
+        command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
 
     VkViewport viewport{};
     viewport.x        = 0.f;
@@ -936,18 +949,18 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     viewport.height   = static_cast<float>(swap_chain_extent_.height);
     viewport.minDepth = 0.f;
     viewport.maxDepth = 1.f;
-    vkCmdSetViewport(command_buffer_, 0, 1, std::addressof(viewport));
+    vkCmdSetViewport(command_buffer, 0, 1, std::addressof(viewport));
 
     VkRect2D scissor{};
     scissor.offset = {0, 0};
     scissor.extent = swap_chain_extent_;
-    vkCmdSetScissor(command_buffer_, 0, 1, std::addressof(scissor));
+    vkCmdSetScissor(command_buffer, 0, 1, std::addressof(scissor));
 
-    vkCmdDraw(command_buffer_, 3, 1, 0, 0);
+    vkCmdDraw(command_buffer, 3, 1, 0, 0);
 
-    vkCmdEndRenderPass(command_buffer_);
+    vkCmdEndRenderPass(command_buffer);
 
-    if (vkEndCommandBuffer(command_buffer_) != VK_SUCCESS)
+    if (vkEndCommandBuffer(command_buffer) != VK_SUCCESS)
     {
         throw std::runtime_error("failed to record command buffer!");
     }
@@ -955,6 +968,10 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
 
 void instance::create_sync_objects_()
 {
+    image_available_semaphores_.resize(max_frames_in_flight);
+    render_finished_semaphores_.resize(max_frames_in_flight);
+    in_flight_fences_.resize(max_frames_in_flight);
+
     VkSemaphoreCreateInfo semaphore_info{};
     semaphore_info.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
 
@@ -962,23 +979,30 @@ void instance::create_sync_objects_()
     fence_info.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
     fence_info.flags = VK_FENCE_CREATE_SIGNALED_BIT;
 
-    if (vkCreateSemaphore(logical_device_,
-                          std::addressof(semaphore_info),
-                          nullptr,
-                          std::addressof(image_available_semaphore_)) !=
-            VK_SUCCESS or
-        vkCreateSemaphore(logical_device_,
-                          std::addressof(semaphore_info),
-                          nullptr,
-                          std::addressof(render_finished_semaphore_)) !=
-            VK_SUCCESS or
-        vkCreateFence(logical_device_,
-                      std::addressof(fence_info),
-                      nullptr,
-                      std::addressof(in_flight_fence_)) != VK_SUCCESS)
+    for (auto&& [image_available_semaphore,
+                 render_finished_semaphore,
+                 in_flight_fence] : std::views::zip(image_available_semaphores_,
+                                                    render_finished_semaphores_,
+                                                    in_flight_fences_))
     {
-        throw std::runtime_error(
-            "failed to create synchronization objects for a frame!");
+        if (vkCreateSemaphore(logical_device_,
+                              std::addressof(semaphore_info),
+                              nullptr,
+                              std::addressof(image_available_semaphore)) !=
+                VK_SUCCESS or
+            vkCreateSemaphore(logical_device_,
+                              std::addressof(semaphore_info),
+                              nullptr,
+                              std::addressof(render_finished_semaphore)) !=
+                VK_SUCCESS or
+            vkCreateFence(logical_device_,
+                          std::addressof(fence_info),
+                          nullptr,
+                          std::addressof(in_flight_fence)) != VK_SUCCESS)
+        {
+            throw std::runtime_error(
+                "failed to create synchronization objects for a frame!");
+        }
     }
 }
 
