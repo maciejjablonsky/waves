@@ -12,6 +12,7 @@ export class window : non_copyable
   private:
     GLFWwindow* window_ = nullptr;
 
+
   public:
     window();
     ~window();

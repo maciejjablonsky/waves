@@ -219,8 +219,18 @@ std::vector<const char*> get_required_extensions()
     return required_extensions;
 }
 
+static void framebuffer_resize_callback(GLFWwindow* window,
+                                        int width,
+                                        int height)
+{
+    auto app = reinterpret_cast<instance*>(glfwGetWindowUserPointer(window));
+    app->framebuffer_resized = true;
+}
+
 instance::instance(window& window) : window_{window}
 {
+    glfwSetWindowUserPointer(window_.get(), this);
+    glfwSetFramebufferSizeCallback(window_.get(), framebuffer_resize_callback);
     create_instance_();
     set_debug_messenger_();
     create_surface_();
@@ -295,8 +305,6 @@ void instance::draw_frame()
                     std::addressof(in_flight_fences_[current_frame_]),
                     VK_TRUE,
                     UINT64_MAX);
-    vkResetFences(
-        logical_device_, 1, std::addressof(in_flight_fences_[current_frame_]));
 
     uint32_t image_index;
     VkResult result =
@@ -306,6 +314,17 @@ void instance::draw_frame()
                               image_available_semaphores_[current_frame_],
                               VK_NULL_HANDLE,
                               std::addressof(image_index));
+    if (result == VK_ERROR_OUT_OF_DATE_KHR)
+    {
+        recreate_swap_chain_();
+        return;
+    }
+    else if (result != VK_SUCCESS and result != VK_SUBOPTIMAL_KHR)
+    {
+        throw std::runtime_error{"failed to acquire swap chain image!"};
+    }
+    vkResetFences(
+        logical_device_, 1, std::addressof(in_flight_fences_[current_frame_]));
 
     vkResetCommandBuffer(command_buffers_[current_frame_], 0);
     record_command_buffer_(command_buffers_[current_frame_], image_index);
@@ -344,7 +363,18 @@ void instance::draw_frame()
     present_info.swapchainCount = 1;
     present_info.pSwapchains    = swap_chains.data();
     present_info.pImageIndices  = std::addressof(image_index);
-    vkQueuePresentKHR(present_queue_, std::addressof(present_info));
+    result = vkQueuePresentKHR(present_queue_, std::addressof(present_info));
+
+    if (result == VK_ERROR_OUT_OF_DATE_KHR or result == VK_SUBOPTIMAL_KHR or
+        framebuffer_resized)
+    {
+        framebuffer_resized = false;
+        recreate_swap_chain_();
+    }
+    else if (result != VK_SUCCESS)
+    {
+        throw std::runtime_error{"failed to present swap chain image!"};
+    }
 
     current_frame_ = (current_frame_ + 1) % max_frames_in_flight;
 }
@@ -356,6 +386,12 @@ void instance::wait_device_idle()
 
 instance::~instance()
 {
+    cleanup_swap_chain_();
+
+    vkDestroyPipeline(logical_device_, graphics_pipeline_, nullptr);
+    vkDestroyPipelineLayout(logical_device_, pipeline_layout_, nullptr);
+    vkDestroyRenderPass(logical_device_, render_pass_, nullptr);
+
     std::ranges::for_each(render_finished_semaphores_, [this](auto semaphore) {
         vkDestroySemaphore(logical_device_, semaphore, nullptr);
     });
@@ -365,23 +401,18 @@ instance::~instance()
     std::ranges::for_each(in_flight_fences_, [this](auto fence) {
         vkDestroyFence(logical_device_, fence, nullptr);
     });
+
     vkDestroyCommandPool(logical_device_, command_pool_, nullptr);
-    std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
-        vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
-    });
-    vkDestroyPipeline(logical_device_, graphics_pipeline_, nullptr);
-    vkDestroyPipelineLayout(logical_device_, pipeline_layout_, nullptr);
-    vkDestroyRenderPass(logical_device_, render_pass_, nullptr);
-    std::ranges::for_each(swap_chain_image_views_, [this](auto image_view) {
-        vkDestroyImageView(logical_device_, image_view, nullptr);
-    });
-    vkDestroySwapchainKHR(logical_device_, swap_chain_, nullptr);
+
     vkDestroyDevice(logical_device_, nullptr);
+
     if (validation_layers_enabled)
     {
         DestroyDebugUtilsMessengerEXT(*this, debug_messenger_, nullptr);
     }
+
     vkDestroySurfaceKHR(instance_, surface_, nullptr);
+
     vkDestroyInstance(*this, nullptr);
 }
 
@@ -564,7 +595,6 @@ void instance::create_swap_chain_()
     create_info.compositeAlpha = VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
     create_info.presentMode    = present_mode;
     create_info.clipped        = VK_TRUE;
-    create_info.oldSwapchain   = VK_NULL_HANDLE;
 
     if (vkCreateSwapchainKHR(logical_device_,
                              std::addressof(create_info),
@@ -1004,6 +1034,37 @@ void instance::create_sync_objects_()
                 "failed to create synchronization objects for a frame!");
         }
     }
+}
+
+void instance::recreate_swap_chain_()
+{
+    int width = 0, height = 0;
+    glfwGetFramebufferSize(
+        window_.get(), std::addressof(width), std::addressof(height));
+    while (width = 0 || height == 0)
+    {
+        glfwGetFramebufferSize(
+            window_.get(), std::addressof(width), std::addressof(height));
+        glfwWaitEvents();
+    }
+    vkDeviceWaitIdle(logical_device_);
+
+    cleanup_swap_chain_();
+
+    create_swap_chain_();
+    create_image_views_();
+    create_framebuffers_();
+}
+
+void instance::cleanup_swap_chain_()
+{
+    std::ranges::for_each(swap_chain_framebuffers_, [this](auto framebuffer) {
+        vkDestroyFramebuffer(logical_device_, framebuffer, nullptr);
+    });
+    std::ranges::for_each(swap_chain_image_views_, [this](auto image_view) {
+        vkDestroyImageView(logical_device_, image_view, nullptr);
+    });
+    vkDestroySwapchainKHR(logical_device_, swap_chain_, nullptr);
 }
 
 void present_device(VkPhysicalDevice device)

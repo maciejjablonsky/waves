@@ -96,8 +96,11 @@ export class instance : wf::non_copyable
     void record_command_buffer_(VkCommandBuffer command_buffer,
                                 uint32_t image_index);
     void create_sync_objects_();
+    void recreate_swap_chain_();
+    void cleanup_swap_chain_();
 
   public:
+    bool framebuffer_resized = false;
     instance(window& window);
     operator VkInstance();
     void draw_frame();
