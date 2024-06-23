@@ -709,8 +709,16 @@ void instance::create_grahpics_pipeline_()
     VkPipelineVertexInputStateCreateInfo vertex_input_info{};
     vertex_input_info.sType =
         VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount   = 0;
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
+
+    auto binding_description    = vertex::get_binding_description();
+    auto attribute_descriptions = vertex::get_attribute_descriptions();
+    vertex_input_info.vertexBindingDescriptionCount = 1;
+    vertex_input_info.vertexAttributeDescriptionCount =
+        wf::to<uint32_t>(attribute_descriptions.size());
+    vertex_input_info.pVertexBindingDescriptions =
+        std::addressof(binding_description);
+    vertex_input_info.pVertexAttributeDescriptions =
+        attribute_descriptions.data();
 
     VkPipelineInputAssemblyStateCreateInfo input_assembly{};
     input_assembly.sType =
@@ -1167,5 +1175,32 @@ void instance::create_logical_device_()
                      indices.present_family.value(),
                      0,
                      std::addressof(present_queue_));
+}
+
+VkVertexInputBindingDescription vertex::get_binding_description()
+{
+    VkVertexInputBindingDescription binding_description{};
+    binding_description.binding   = 0;
+    binding_description.stride    = sizeof(vertex);
+    binding_description.inputRate = VK_VERTEX_INPUT_RATE_VERTEX;
+    return binding_description;
+}
+
+std::array<VkVertexInputAttributeDescription, 2> vertex::
+    get_attribute_descriptions()
+{
+    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{};
+
+    attribute_descriptions[0].binding  = 0;
+    attribute_descriptions[0].location = 0;
+    attribute_descriptions[0].format   = VK_FORMAT_R32G32_SFLOAT;
+    attribute_descriptions[0].offset   = offsetof(vertex, pos);
+
+    attribute_descriptions[1].binding  = 0;
+    attribute_descriptions[1].location = 1;
+    attribute_descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
+    attribute_descriptions[1].offset   = offsetof(vertex, color);
+
+    return attribute_descriptions;
 }
 } // namespace wf::vk

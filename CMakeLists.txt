@@ -12,7 +12,7 @@ target_sources(waves_field
     PUBLIC
         src/main.cpp
         src/window.cpp
-        src/vk/instance.cpp
+        src/vk/instance.cpp 
         src/utils.cpp
     PUBLIC FILE_SET CXX_MODULES FILES
         src/utils.ixx

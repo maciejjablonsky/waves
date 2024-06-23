@@ -1,5 +1,6 @@
 module;
 #include <array>
+#include <glm/glm.hpp>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -12,6 +13,18 @@ import utils;
 
 namespace wf::vk
 {
+export struct vertex
+{
+    glm::vec2 pos;
+    glm::vec3 color;
+
+    static VkVertexInputBindingDescription get_binding_description();
+    static std::array<VkVertexInputAttributeDescription, 2>
+    get_attribute_descriptions();
+};
+static_assert(std::is_standard_layout_v<vertex>,
+              "vertex must be standard layout");
+
 using namespace std::string_view_literals;
 constexpr std::array validation_layers = {"VK_LAYER_KHRONOS_validation"};
 #ifdef NDEBUG
