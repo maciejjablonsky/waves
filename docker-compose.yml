@@ -1,0 +1,14 @@
+version: '3'
+services:
+  windows-1:
+    image: windows-github-runner
+    environment:
+      - RUNNER_NAME=runner-windows1
+      - REPO_URL=https://github.com/maciejjablonsky/waves_field
+      - TOKEN=${TOKEN}
+  windows-2:
+    image: windows-github-runner
+    environment:
+      - RUNNER_NAME=runner-windows2
+      - REPO_URL=https://github.com/maciejjablonsky/waves_field
+      - TOKEN=${TOKEN}
