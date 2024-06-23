@@ -5,10 +5,10 @@ module;
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 #include <algorithm>
+#include <bitset>
 #include <print>
 #include <ranges>
 #include <set>
-
 module vk;
 
 namespace wf::vk
@@ -234,7 +234,6 @@ instance::instance(window& window) : window_{window}
     create_instance_();
     set_debug_messenger_();
     create_surface_();
-
     pick_physical_device_();
     create_logical_device_();
     create_swap_chain_();
@@ -243,6 +242,7 @@ instance::instance(window& window) : window_{window}
     create_grahpics_pipeline_();
     create_framebuffers_();
     create_command_pool_();
+    create_vertex_buffer_();
     create_command_buffers_();
     create_sync_objects_();
 }
@@ -387,6 +387,8 @@ void instance::wait_device_idle()
 instance::~instance()
 {
     cleanup_swap_chain_();
+    vkDestroyBuffer(logical_device_, vertex_buffer_, nullptr);
+    vkFreeMemory(logical_device_, vertex_buffer_memory_, nullptr);
 
     vkDestroyPipeline(logical_device_, graphics_pipeline_, nullptr);
     vkDestroyPipelineLayout(logical_device_, pipeline_layout_, nullptr);
@@ -980,6 +982,11 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     vkCmdBindPipeline(
         command_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, graphics_pipeline_);
 
+    std::array vertex_buffers           = {vertex_buffer_};
+    std::array<VkDeviceSize, 1> offsets = {0};
+    vkCmdBindVertexBuffers(
+        command_buffer, 0, 1, vertex_buffers.data(), offsets.data());
+
     VkViewport viewport{};
     viewport.x        = 0.f;
     viewport.y        = 0.f;
@@ -1073,6 +1080,56 @@ void instance::cleanup_swap_chain_()
         vkDestroyImageView(logical_device_, image_view, nullptr);
     });
     vkDestroySwapchainKHR(logical_device_, swap_chain_, nullptr);
+}
+
+void instance::create_vertex_buffer_()
+{
+    VkBufferCreateInfo buffer_info{};
+    buffer_info.sType       = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO;
+    buffer_info.size        = sizeof(vertices[0]) * vertices.size();
+    buffer_info.usage       = VK_BUFFER_USAGE_VERTEX_BUFFER_BIT;
+    buffer_info.sharingMode = VK_SHARING_MODE_EXCLUSIVE;
+
+    if (vkCreateBuffer(logical_device_,
+                       std::addressof(buffer_info),
+                       nullptr,
+                       std::addressof(vertex_buffer_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create vertex buffer!");
+    }
+
+    VkMemoryRequirements mem_requirements;
+    vkGetBufferMemoryRequirements(
+        logical_device_, vertex_buffer_, std::addressof(mem_requirements));
+
+    VkMemoryAllocateInfo alloc_info{};
+    alloc_info.sType          = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO;
+    alloc_info.allocationSize = mem_requirements.size;
+    alloc_info.memoryTypeIndex =
+        find_memory_type_(mem_requirements.memoryTypeBits,
+                          VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                              VK_MEMORY_PROPERTY_HOST_COHERENT_BIT);
+
+    if (vkAllocateMemory(logical_device_,
+                         std::addressof(alloc_info),
+                         nullptr,
+                         std::addressof(vertex_buffer_memory_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate vertex buffer memory!");
+    }
+    vkBindBufferMemory(
+        logical_device_, vertex_buffer_, vertex_buffer_memory_, 0);
+
+    void* data = nullptr;
+    vkMapMemory(logical_device_,
+                vertex_buffer_memory_,
+                0,
+                buffer_info.size,
+                0,
+                std::addressof(data));
+    std::copy(
+        std::begin(vertices), std::end(vertices), static_cast<vertex*>(data));
+    vkUnmapMemory(logical_device_, vertex_buffer_memory_);
 }
 
 void present_device(VkPhysicalDevice device)
@@ -1202,5 +1259,25 @@ std::array<VkVertexInputAttributeDescription, 2> vertex::
     attribute_descriptions[1].offset   = offsetof(vertex, color);
 
     return attribute_descriptions;
+}
+
+uint32_t instance::find_memory_type_(uint32_t type_filter,
+                                     VkMemoryPropertyFlags properties)
+{
+    VkPhysicalDeviceMemoryProperties mem_properties;
+    vkGetPhysicalDeviceMemoryProperties(physical_device_,
+                                        std::addressof(mem_properties));
+    for (uint32_t i = 0; i < mem_properties.memoryTypeCount; ++i)
+    {
+        std::bitset<32> bitset{type_filter};
+        bool matching_properties =
+            (mem_properties.memoryTypes[i].propertyFlags & properties) ==
+            properties;
+        if (bitset.test(i) and matching_properties)
+        {
+            return i;
+        }
+    }
+    throw std::runtime_error{"failed to find suitable memory type!"};
 }
 } // namespace wf::vk

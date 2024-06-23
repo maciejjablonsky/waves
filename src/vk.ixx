@@ -25,6 +25,10 @@ export struct vertex
 static_assert(std::is_standard_layout_v<vertex>,
               "vertex must be standard layout");
 
+const std::vector<vertex> vertices{{{0.f, -0.5f}, {1.f, 0.f, 1.f}},
+                                   {{0.5f, 0.5f}, {0.f, 1.f, 0.f}},
+                                   {{-0.5f, 0.5f}, {0.f, 0.f, 1.f}}};
+
 using namespace std::string_view_literals;
 constexpr std::array validation_layers = {"VK_LAYER_KHRONOS_validation"};
 #ifdef NDEBUG
@@ -84,6 +88,8 @@ export class instance : wf::non_copyable
     std::vector<VkSemaphore> render_finished_semaphores_;
     std::vector<VkFence> in_flight_fences_;
     uint32_t current_frame_ = 0;
+    VkBuffer vertex_buffer_;
+    VkDeviceMemory vertex_buffer_memory_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -111,6 +117,9 @@ export class instance : wf::non_copyable
     void create_sync_objects_();
     void recreate_swap_chain_();
     void cleanup_swap_chain_();
+    void create_vertex_buffer_();
+    uint32_t find_memory_type_(uint32_t type_filter,
+                               VkMemoryPropertyFlags properties);
 
   public:
     bool framebuffer_resized = false;
