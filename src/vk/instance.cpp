@@ -1,20 +1,16 @@
-#include <algorithm>
-#include <cstdint>
+module;
 #include <fmt/color.h>
 #include <fmt/format.h>
-#include <format>
-#include <limits>
 #include <magic_enum/magic_enum.hpp>
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+#include <algorithm>
 #include <print>
 #include <ranges>
 #include <set>
-#include <stdexcept>
-#include <utility>
-#include <vector>
-#include <vk/instance.hpp>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
+module vk;
+
 namespace wf::vk
 {
 static VKAPI_ATTR VkBool32
@@ -35,7 +31,8 @@ vk_debug_callback(VkDebugUtilsMessageSeverityFlagBitsEXT messageSeverity,
         case VK_DEBUG_UTILS_MESSAGE_SEVERITY_ERROR_BIT_EXT:
             return fmt::format(fg(fmt::color::red), "{:^10}", "vk error");
         default:
-            std::unreachable();
+            return fmt::format(
+                fg(fmt::color::gray), "{:^10}", "vk unknown error level");
         };
     };
     std::println(

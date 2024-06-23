@@ -1,24 +1,23 @@
-#pragma once
-#include <concepts>
-#include <cstdio>
+module;
+
 #include <filesystem>
 #include <fmt/format.h>
 #include <glm/glm.hpp>
 #include <source_location>
-#include <string>
-#include <type_traits>
-#include <utility>
+
+export module utils;
 
 namespace wf
 {
 
-void log(const std::string& message,
-         const std::source_location& loc = std::source_location::current());
+export void log(
+    const std::string& message,
+    const std::source_location& loc = std::source_location::current());
 
-std::string load_text_from_file(const std::filesystem::path& path);
-std::vector<std::byte> load_binary_from_file(const std::filesystem::path& path);
-
-struct non_copyable
+export std::string load_text_from_file(const std::filesystem::path& path);
+export std::vector<std::byte> load_binary_from_file(
+    const std::filesystem::path& path);
+export struct non_copyable
 {
     non_copyable(const non_copyable&)            = delete;
     non_copyable& operator=(const non_copyable&) = delete;
@@ -30,7 +29,7 @@ static_assert(std::default_initializable<non_copyable>);
 static_assert(not std::copy_constructible<non_copyable>);
 static_assert(std::move_constructible<non_copyable>);
 
-struct scoped_file
+export struct scoped_file
 {
   private:
     std::FILE* fp_;
@@ -45,7 +44,7 @@ struct scoped_file
     operator bool();
 };
 
-class unimplemented_error : public std::exception
+export class unimplemented_error : public std::exception
 {
   private:
     std::string message_;
@@ -55,39 +54,41 @@ class unimplemented_error : public std::exception
     const char* what() const;
 };
 
-template <class... Ts> struct overloaded : Ts...
+export template <class... Ts> struct overloaded : Ts...
 {
     using Ts::operator()...;
 };
 
-template <typename T>
+export template <typename T>
 using optional_ref = std::optional<std::reference_wrapper<T>>;
 
-template <typename T> constexpr bool is_in(T&& value, auto&& container)
+export template <typename T> constexpr bool is_in(T&& value, auto&& container)
 {
     return std::find(std::begin(container),
                      std::end(container),
                      std::forward<T>(value)) != std::end(container);
 }
 
-template <typename> struct is_tuple : std::false_type
+export template <typename> struct is_tuple : std::false_type
 {
 };
 
-template <typename... T> struct is_tuple<std::tuple<T...>> : std::true_type
+export template <typename... T>
+struct is_tuple<std::tuple<T...>> : std::true_type
 {
 };
 
-template <typename T> constexpr inline bool is_tuple_v = is_tuple<T>::value;
+export template <typename T>
+constexpr inline bool is_tuple_v = is_tuple<T>::value;
 
-template <typename> struct function_traits;
+export template <typename> struct function_traits;
 
-template <typename Function>
+export template <typename Function>
 struct function_traits : public function_traits<decltype(&Function::operator())>
 {
 };
 
-template <typename Ret, typename Class, typename... Args>
+export template <typename Ret, typename Class, typename... Args>
 struct function_traits<Ret (Class::*)(Args...) const>
 {
     using result_type = Ret;
@@ -99,7 +100,7 @@ struct function_traits<Ret (Class::*)(Args...) const>
     static const std::size_t arity = sizeof...(Args);
 };
 
-template <typename Ret, typename... Args>
+export template <typename Ret, typename... Args>
 struct function_traits<Ret (*)(Args...)>
 {
     using result_type = Ret;
@@ -109,7 +110,7 @@ struct function_traits<Ret (*)(Args...)>
     static const std::size_t arity = sizeof...(Args);
 };
 
-template <typename Ret, typename Class, typename... Args>
+export template <typename Ret, typename Class, typename... Args>
 struct function_traits<Ret (Class::*)(Args...)>
 {
     using result_type = Ret;
@@ -119,19 +120,20 @@ struct function_traits<Ret (Class::*)(Args...)>
     static const std::size_t arity = sizeof...(Args);
 };
 
-template <std::floating_point T> constexpr bool is_equal(T&& a, T&& b)
+export template <std::floating_point T> constexpr bool is_equal(T&& a, T&& b)
 {
     return std::abs(a - b) < std::numeric_limits<T>::epsilon() * std::abs(a);
 }
 
-template <std::integral To, std::integral From> To to(From&& from)
+export template <std::integral To, std::integral From> To to(From&& from)
 {
     // TODO: add runtime checks in case signed/unsigned conversions
-	return static_cast<To>(from);
+    return static_cast<To>(from);
 }
 } // namespace wf
 
-template <> struct fmt::formatter<glm::vec3> : fmt::formatter<std::string>
+export template <>
+struct fmt::formatter<glm::vec3> : fmt::formatter<std::string>
 {
     auto format(const glm::vec3& v, format_context& ctx) const
     {

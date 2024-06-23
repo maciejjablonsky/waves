@@ -1,10 +1,12 @@
-cmake_minimum_required(VERSION 3.15)
+cmake_minimum_required(VERSION 3.29.6 FATAL_ERROR)
+
 project(waves_field CXX)
 
 add_subdirectory(shaders)
 
 add_executable(waves_field)
 add_dependencies(waves_field wf_shaders)
+target_compile_features(waves_field PUBLIC cxx_std_23)
 
 target_sources(waves_field
     PUBLIC
@@ -12,13 +14,10 @@ target_sources(waves_field
         src/window.cpp
         src/vk/instance.cpp
         src/utils.cpp
-    PUBLIC
-    FILE_SET HEADERS
-    BASE_DIRS src
-    FILES
-        src/window.hpp
-        src/vk/instance.hpp
-        src/utils.hpp
+    PUBLIC FILE_SET CXX_MODULES FILES
+        src/utils.ixx
+        src/window.ixx
+        src/vk.ixx
 )
 
 find_package(glfw3 REQUIRED CONFIG)

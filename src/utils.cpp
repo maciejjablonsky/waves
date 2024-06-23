@@ -1,5 +1,9 @@
-#include "utils.hpp"
+module;
+#include <fmt/format.h>
 #include <fmt/std.h>
+#include <source_location>
+
+module utils;
 
 namespace wf
 {

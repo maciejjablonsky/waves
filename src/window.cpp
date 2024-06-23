@@ -1,4 +1,8 @@
-#include <window.hpp>
+module;
+#define GLFW_INCLUDE_VULKAN
+#include <GLFW/glfw3.h>
+
+module window;
 
 namespace wf
 {
@@ -14,6 +18,7 @@ window::~window()
     glfwDestroyWindow(window_);
     glfwTerminate();
 }
+
 window::operator GLFWwindow*()
 {
     return window_;

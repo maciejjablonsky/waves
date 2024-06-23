@@ -1,11 +1,14 @@
-#pragma once
+module;
 #include <array>
-#include <set>
+#include <optional>
 #include <string_view>
-#include <utils.hpp>
 #include <vector>
 #include <vulkan/vulkan.h>
-#include <window.hpp>
+
+export module vk;
+
+import window;
+import utils;
 
 namespace wf::vk
 {
@@ -37,7 +40,7 @@ struct swap_chain_support_details
     std::vector<VkPresentModeKHR> present_modes;
 };
 
-class instance : wf::non_copyable
+export class instance : wf::non_copyable
 {
   private:
     std::reference_wrapper<window> window_;
