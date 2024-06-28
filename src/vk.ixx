@@ -120,6 +120,15 @@ export class instance : wf::non_copyable
     void create_vertex_buffer_();
     uint32_t find_memory_type_(uint32_t type_filter,
                                VkMemoryPropertyFlags properties);
+    void create_buffer_(VkDeviceSize size,
+                        VkBufferUsageFlags usage,
+                        VkMemoryPropertyFlags properties,
+                        VkBuffer& buffer,
+                        VkDeviceMemory& buffer_memory);
+
+    void copy_buffer_(VkBuffer src_buffer,
+                      VkBuffer dst_buffer,
+                      VkDeviceSize size);
 
   public:
     bool framebuffer_resized = false;
