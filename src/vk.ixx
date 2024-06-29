@@ -13,6 +13,13 @@ import utils;
 
 namespace wf::vk
 {
+struct uniform_buffer_object
+{
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 proj;
+};
+
 export struct vertex
 {
     glm::vec2 pos;
@@ -81,6 +88,7 @@ export class instance : wf::non_copyable
     std::vector<VkImageView> swap_chain_image_views_;
 
     VkRenderPass render_pass_;
+    VkDescriptorSetLayout descriptor_set_layout_;
     VkPipelineLayout pipeline_layout_;
     VkPipeline graphics_pipeline_;
     std::vector<VkFramebuffer> swap_chain_framebuffers_;
@@ -95,6 +103,10 @@ export class instance : wf::non_copyable
     VkDeviceMemory vertex_buffer_memory_;
     VkBuffer index_buffer_;
     VkDeviceMemory index_buffer_memory_;
+
+    std::vector<VkBuffer> uniform_buffers_;
+    std::vector<VkDeviceMemory> uniform_buffers_memory_;
+    std::vector<void*> uniform_buffers_mapped_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -135,6 +147,9 @@ export class instance : wf::non_copyable
                       VkBuffer dst_buffer,
                       VkDeviceSize size);
     void create_index_buffer_();
+    void create_descriptor_set_layout_();
+    void create_uniform_buffers_();
+    void update_uniform_buffer_(uint32_t current_image);
 
   public:
     bool framebuffer_resized = false;

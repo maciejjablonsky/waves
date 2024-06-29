@@ -6,6 +6,9 @@ module;
 #include <GLFW/glfw3.h>
 #include <algorithm>
 #include <bitset>
+#include <chrono>
+#include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
 #include <print>
 #include <ranges>
 #include <set>
@@ -239,11 +242,13 @@ instance::instance(window& window) : window_{window}
     create_swap_chain_();
     create_image_views_();
     create_render_pass_();
+    create_descriptor_set_layout_();
     create_grahpics_pipeline_();
     create_framebuffers_();
     create_command_pool_();
     create_vertex_buffer_();
     create_index_buffer_();
+    create_uniform_buffers_();
     create_command_buffers_();
     create_sync_objects_();
 }
@@ -330,6 +335,8 @@ void instance::draw_frame()
     vkResetCommandBuffer(command_buffers_[current_frame_], 0);
     record_command_buffer_(command_buffers_[current_frame_], image_index);
 
+    update_uniform_buffer_(current_frame_);
+
     VkSubmitInfo submit_info{};
     submit_info.sType          = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     std::array wait_semaphores = {image_available_semaphores_[current_frame_]};
@@ -388,6 +395,17 @@ void instance::wait_device_idle()
 instance::~instance()
 {
     cleanup_swap_chain_();
+
+    std::ranges::for_each(
+        std::views::zip(uniform_buffers_, uniform_buffers_memory_),
+        [this](auto&& uniform) {
+            const auto& [buffer, memory] = uniform;
+            vkDestroyBuffer(logical_device_, buffer, nullptr);
+            vkFreeMemory(logical_device_, memory, nullptr);
+        });
+
+    vkDestroyDescriptorSetLayout(
+        logical_device_, descriptor_set_layout_, nullptr);
     vkDestroyBuffer(logical_device_, index_buffer_, nullptr);
     vkFreeMemory(logical_device_, index_buffer_memory_, nullptr);
     vkDestroyBuffer(logical_device_, vertex_buffer_, nullptr);
@@ -801,8 +819,8 @@ void instance::create_grahpics_pipeline_()
 
     VkPipelineLayoutCreateInfo pipeline_layout_info{};
     pipeline_layout_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
-    pipeline_layout_info.setLayoutCount         = 0;
-    pipeline_layout_info.pSetLayouts            = nullptr;
+    pipeline_layout_info.setLayoutCount = 1;
+    pipeline_layout_info.pSetLayouts = std::addressof(descriptor_set_layout_);
     pipeline_layout_info.pushConstantRangeCount = 0;
     pipeline_layout_info.pPushConstantRanges    = nullptr;
 
@@ -1164,6 +1182,78 @@ void instance::create_index_buffer_()
 
     vkDestroyBuffer(logical_device_, staging_buffer, nullptr);
     vkFreeMemory(logical_device_, staging_buffer_memory, nullptr);
+}
+
+void instance::create_descriptor_set_layout_()
+{
+    VkDescriptorSetLayoutBinding ubo_layout_binding{};
+    ubo_layout_binding.binding            = 0;
+    ubo_layout_binding.descriptorType     = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    ubo_layout_binding.descriptorCount    = 1;
+    ubo_layout_binding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
+    ubo_layout_binding.pImmutableSamplers = nullptr;
+
+    VkDescriptorSetLayoutCreateInfo layout_info{};
+    layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
+    layout_info.bindingCount = 1;
+    layout_info.pBindings    = std::addressof(ubo_layout_binding);
+
+    if (vkCreateDescriptorSetLayout(logical_device_,
+                                    std::addressof(layout_info),
+                                    nullptr,
+                                    std::addressof(descriptor_set_layout_)) !=
+        VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor set layout!");
+    }
+}
+
+void instance::create_uniform_buffers_()
+{
+    [](auto&... vectors) {
+        (vectors.resize(max_frames_in_flight), ...);
+    }(uniform_buffers_, uniform_buffers_memory_, uniform_buffers_mapped_);
+
+    auto uniforms = std::views::zip(
+        uniform_buffers_, uniform_buffers_memory_, uniform_buffers_mapped_);
+
+    std::ranges::for_each(uniforms, [this](auto&& uniform) {
+        auto& [buffer, memory, map] = uniform;
+        size_t buffer_size          = sizeof(uniform_buffer_object);
+        create_buffer_(buffer_size,
+                       VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT,
+                       VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                           VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                       buffer,
+                       memory);
+        vkMapMemory(
+            logical_device_, memory, 0, buffer_size, 0, std::addressof(map));
+    });
+}
+
+void instance::update_uniform_buffer_(uint32_t current_image)
+{
+    static auto start_time = std::chrono::high_resolution_clock::now();
+    auto current_time      = std::chrono::high_resolution_clock::now();
+    float time = std::chrono::duration<float, std::chrono::seconds::period>(
+                     current_time - start_time)
+                     .count();
+
+    uniform_buffer_object ubo{};
+    ubo.model = glm::rotate(
+        glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
+    ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f),
+                           glm::vec3(0.f, 0.f, 0.f),
+                           glm::vec3(0.f, 0.f, 1.f));
+    ubo.proj =
+        glm::perspective(glm::radians(45.f),
+                         swap_chain_extent_.width /
+                             static_cast<float>(swap_chain_extent_.height),
+                         0.1f,
+                         10.f);
+    ubo.proj[1][1] *= -1;
+    std::memcpy(
+        uniform_buffers_[current_image], std::addressof(ubo), sizeof(ubo));
 }
 
 void instance::create_vertex_buffer_()
