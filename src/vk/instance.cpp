@@ -243,6 +243,7 @@ instance::instance(window& window) : window_{window}
     create_framebuffers_();
     create_command_pool_();
     create_vertex_buffer_();
+    create_index_buffer_();
     create_command_buffers_();
     create_sync_objects_();
 }
@@ -387,6 +388,8 @@ void instance::wait_device_idle()
 instance::~instance()
 {
     cleanup_swap_chain_();
+    vkDestroyBuffer(logical_device_, index_buffer_, nullptr);
+    vkFreeMemory(logical_device_, index_buffer_memory_, nullptr);
     vkDestroyBuffer(logical_device_, vertex_buffer_, nullptr);
     vkFreeMemory(logical_device_, vertex_buffer_memory_, nullptr);
 
@@ -986,6 +989,8 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     std::array<VkDeviceSize, 1> offsets = {0};
     vkCmdBindVertexBuffers(
         command_buffer, 0, 1, vertex_buffers.data(), offsets.data());
+    vkCmdBindIndexBuffer(
+        command_buffer, index_buffer_, 0, VK_INDEX_TYPE_UINT16);
 
     VkViewport viewport{};
     viewport.x        = 0.f;
@@ -1001,7 +1006,8 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     scissor.extent = swap_chain_extent_;
     vkCmdSetScissor(command_buffer, 0, 1, std::addressof(scissor));
 
-    vkCmdDraw(command_buffer, 3, 1, 0, 0);
+    vkCmdDrawIndexed(
+        command_buffer, wf::to<uint32_t>(indices.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -1122,6 +1128,42 @@ void instance::copy_buffer_(VkBuffer src_buffer,
 
     vkFreeCommandBuffers(
         logical_device_, command_pool_, 1, std::addressof(command_buffer));
+}
+
+void instance::create_index_buffer_()
+{
+    VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+    VkBuffer staging_buffer;
+    VkDeviceMemory staging_buffer_memory;
+    create_buffer_(buffer_size,
+                   VK_BUFFER_USAGE_TRANSFER_SRC_BIT,
+                   VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT |
+                       VK_MEMORY_PROPERTY_HOST_COHERENT_BIT,
+                   staging_buffer,
+                   staging_buffer_memory);
+
+    void* data = nullptr;
+    vkMapMemory(logical_device_,
+                staging_buffer_memory,
+                0,
+                buffer_size,
+                0,
+                std::addressof(data));
+    std::copy(
+        std::begin(indices), std::end(indices), static_cast<uint16_t*>(data));
+    vkUnmapMemory(logical_device_, staging_buffer_memory);
+
+    create_buffer_(buffer_size,
+                   VK_BUFFER_USAGE_TRANSFER_DST_BIT |
+                       VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+                   VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT,
+                   index_buffer_,
+                   index_buffer_memory_);
+
+    copy_buffer_(staging_buffer, index_buffer_, buffer_size);
+
+    vkDestroyBuffer(logical_device_, staging_buffer, nullptr);
+    vkFreeMemory(logical_device_, staging_buffer_memory, nullptr);
 }
 
 void instance::create_vertex_buffer_()
