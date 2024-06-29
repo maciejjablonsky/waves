@@ -7,11 +7,16 @@ module;
 #include <algorithm>
 #include <bitset>
 #include <chrono>
+#include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <print>
 #include <ranges>
 #include <set>
+
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
+
 module vk;
 
 namespace wf::vk
@@ -246,6 +251,7 @@ instance::instance(window& window) : window_{window}
     create_grahpics_pipeline_();
     create_framebuffers_();
     create_command_pool_();
+    create_texture_image_();
     create_vertex_buffer_();
     create_index_buffer_();
     create_uniform_buffers_();
@@ -703,9 +709,9 @@ struct vk_shader_module
 void instance::create_grahpics_pipeline_()
 {
     vk_shader_module vert_shader_module(
-        logical_device_, load_binary_from_file("../shaders/shader.vert.spv"));
+        logical_device_, load_binary_from_file("shaders/shader.vert.spv"));
     vk_shader_module frag_shader_module(
-        logical_device_, load_binary_from_file("../shaders/shader.frag.spv"));
+        logical_device_, load_binary_from_file("shaders/shader.frag.spv"));
 
     VkPipelineShaderStageCreateInfo vert_shader_stage_info{};
     vert_shader_stage_info.sType =
@@ -1322,6 +1328,23 @@ void instance::create_descriptor_sets_()
         descriptor_write.pBufferInfo     = std::addressof(buffer_info);
         vkUpdateDescriptorSets(
             logical_device_, 1, std::addressof(descriptor_write), 0, nullptr);
+    }
+}
+
+void instance::create_texture_image_()
+{
+    auto cwd = std::filesystem::current_path();
+    int tex_width, tex_height, tex_channels;
+    auto pixels             = stbi_load("textures/statue-1275469.jpg",
+                            std::addressof(tex_width),
+                            std::addressof(tex_height),
+                            std::addressof(tex_channels),
+                            STBI_rgb_alpha);
+    VkDeviceSize image_size = tex_width * tex_height * 4;
+
+    if (not pixels)
+    {
+        throw std::runtime_error("failed to load texture image!");
     }
 }
 

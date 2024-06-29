@@ -7,6 +7,7 @@
 #include <GLFW/glfw3.h>
 
 #include <exception>
+#include <filesystem>
 #include <print>
 
 import vk;
@@ -42,6 +43,10 @@ int main()
 {
     try
     {
+        if (const char* cwd = std::getenv("WAVES_FIELD_WORKING_DIR"))
+        {
+            std::filesystem::current_path(cwd);
+        }
         wf::app app;
     }
     catch (const std::exception& e)
