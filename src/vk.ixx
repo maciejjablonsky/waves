@@ -15,9 +15,9 @@ namespace wf::vk
 {
 struct uniform_buffer_object
 {
-    glm::mat4 model;
-    glm::mat4 view;
-    glm::mat4 proj;
+    alignas(16) glm::mat4 model;
+    alignas(16) glm::mat4 view;
+    alignas(16) glm::mat4 proj;
 };
 
 export struct vertex
@@ -107,6 +107,8 @@ export class instance : wf::non_copyable
     std::vector<VkBuffer> uniform_buffers_;
     std::vector<VkDeviceMemory> uniform_buffers_memory_;
     std::vector<void*> uniform_buffers_mapped_;
+    VkDescriptorPool descriptor_pool_;
+    std::vector<VkDescriptorSet> descriptor_sets_;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -150,6 +152,8 @@ export class instance : wf::non_copyable
     void create_descriptor_set_layout_();
     void create_uniform_buffers_();
     void update_uniform_buffer_(uint32_t current_image);
+    void create_descriptor_pool_();
+    void create_descriptor_sets_();
 
   public:
     bool framebuffer_resized = false;

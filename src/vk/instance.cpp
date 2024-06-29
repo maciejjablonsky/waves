@@ -249,6 +249,8 @@ instance::instance(window& window) : window_{window}
     create_vertex_buffer_();
     create_index_buffer_();
     create_uniform_buffers_();
+    create_descriptor_pool_();
+    create_descriptor_sets_();
     create_command_buffers_();
     create_sync_objects_();
 }
@@ -403,7 +405,7 @@ instance::~instance()
             vkDestroyBuffer(logical_device_, buffer, nullptr);
             vkFreeMemory(logical_device_, memory, nullptr);
         });
-
+    vkDestroyDescriptorPool(logical_device_, descriptor_pool_, nullptr);
     vkDestroyDescriptorSetLayout(
         logical_device_, descriptor_set_layout_, nullptr);
     vkDestroyBuffer(logical_device_, index_buffer_, nullptr);
@@ -776,7 +778,7 @@ void instance::create_grahpics_pipeline_()
     rasterizer.polygonMode             = VK_POLYGON_MODE_FILL;
     rasterizer.lineWidth               = 1.f;
     rasterizer.cullMode                = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace               = VK_FRONT_FACE_CLOCKWISE;
+    rasterizer.frontFace               = VK_FRONT_FACE_COUNTER_CLOCKWISE;
     rasterizer.depthBiasEnable         = VK_FALSE;
     rasterizer.depthBiasConstantFactor = 0.f;
     rasterizer.depthBiasClamp          = 0.f;
@@ -1024,6 +1026,14 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     scissor.extent = swap_chain_extent_;
     vkCmdSetScissor(command_buffer, 0, 1, std::addressof(scissor));
 
+    vkCmdBindDescriptorSets(command_buffer,
+                            VK_PIPELINE_BIND_POINT_GRAPHICS,
+                            pipeline_layout_,
+                            0,
+                            1,
+                            std::addressof(descriptor_sets_[current_frame_]),
+                            0,
+                            nullptr);
     vkCmdDrawIndexed(
         command_buffer, wf::to<uint32_t>(indices.size()), 1, 0, 0, 0);
 
@@ -1252,8 +1262,67 @@ void instance::update_uniform_buffer_(uint32_t current_image)
                          0.1f,
                          10.f);
     ubo.proj[1][1] *= -1;
-    std::memcpy(
-        uniform_buffers_[current_image], std::addressof(ubo), sizeof(ubo));
+    std::memcpy(uniform_buffers_mapped_[current_image],
+                std::addressof(ubo),
+                sizeof(ubo));
+}
+
+void instance::create_descriptor_pool_()
+{
+    VkDescriptorPoolSize pool_size{};
+    pool_size.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_size.descriptorCount = wf::to<uint32_t>(max_frames_in_flight);
+
+    VkDescriptorPoolCreateInfo pool_info{};
+    pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
+    pool_info.poolSizeCount = 1;
+    pool_info.pPoolSizes    = std::addressof(pool_size);
+    pool_info.maxSets       = wf::to<uint32_t>(max_frames_in_flight);
+    if (vkCreateDescriptorPool(logical_device_,
+                               std::addressof(pool_info),
+                               nullptr,
+                               std::addressof(descriptor_pool_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create descriptor pool!");
+    }
+}
+
+void instance::create_descriptor_sets_()
+{
+    std::vector<VkDescriptorSetLayout> layouts(max_frames_in_flight,
+                                               descriptor_set_layout_);
+    VkDescriptorSetAllocateInfo alloc_info{};
+    alloc_info.sType          = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO;
+    alloc_info.descriptorPool = descriptor_pool_;
+    alloc_info.descriptorSetCount = wf::to<uint32_t>(max_frames_in_flight);
+    alloc_info.pSetLayouts        = layouts.data();
+
+    descriptor_sets_.resize(max_frames_in_flight);
+    if (vkAllocateDescriptorSets(logical_device_,
+                                 std::addressof(alloc_info),
+                                 descriptor_sets_.data()) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to allocate descriptor sets!");
+    }
+
+    for (size_t i = 0; i < max_frames_in_flight; ++i)
+    {
+        VkDescriptorBufferInfo buffer_info{};
+        buffer_info.buffer = uniform_buffers_[i];
+        buffer_info.offset = 0;
+        buffer_info.range  = sizeof(uniform_buffer_object);
+
+        VkWriteDescriptorSet descriptor_write{};
+        descriptor_write.sType      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_write.dstSet     = descriptor_sets_[i];
+        descriptor_write.dstBinding = 0;
+        descriptor_write.dstArrayElement = 0;
+        descriptor_write.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptor_write.descriptorCount = 1;
+        descriptor_write.pBufferInfo     = std::addressof(buffer_info);
+        vkUpdateDescriptorSets(
+            logical_device_, 1, std::addressof(descriptor_write), 0, nullptr);
+    }
 }
 
 void instance::create_vertex_buffer_()

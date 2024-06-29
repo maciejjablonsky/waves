@@ -4,3 +4,4 @@ CMakeUserPresets.json
 out/*
 *.pdb
 .env
+vulkan_tutorial_en.pdf
