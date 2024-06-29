@@ -110,6 +110,9 @@ export class instance : wf::non_copyable
     VkDescriptorPool descriptor_pool_;
     std::vector<VkDescriptorSet> descriptor_sets_;
 
+    VkImage texture_image_{};
+    VkDeviceMemory texture_image_memory_{};
+
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
         VkPhysicalDevice device);
@@ -154,6 +157,25 @@ export class instance : wf::non_copyable
     void update_uniform_buffer_(uint32_t current_image);
     void create_descriptor_pool_();
     void create_descriptor_sets_();
+    void create_texture_image_();
+    void create_image_(uint32_t width,
+                       uint32_t heigth,
+                       VkFormat format,
+                       VkImageTiling tiling,
+                       VkImageUsageFlags usage,
+                       VkMemoryPropertyFlags properties,
+                       VkImage& image,
+                       VkDeviceMemory& image_memory);
+    VkCommandBuffer begin_single_time_commands_();
+    void end_single_time_commands_(VkCommandBuffer command_buffer);
+    void transition_image_layout_(VkImage image,
+                                  VkFormat format,
+                                  VkImageLayout old_layout,
+                                  VkImageLayout new_layout);
+    void copy_buffer_to_image_(VkBuffer buffer,
+                               VkImage image,
+                               uint32_t width,
+                               uint32_t height);
 
   public:
     bool framebuffer_resized = false;

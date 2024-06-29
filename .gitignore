@@ -5,4 +5,4 @@ out/*
 *.pdb
 .env
 vulkan_tutorial_en.pdf
-.spv
+*.spv

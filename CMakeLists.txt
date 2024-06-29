@@ -25,6 +25,7 @@ find_package(glm REQUIRED CONFIG)
 find_package(VulkanLoader REQUIRED CONFIG)
 find_package(magic_enum REQUIRED CONFIG)
 find_package(fmt REQUIRED CONFIG)
+find_package(stb REQUIRED CONFIG)
 target_link_libraries(waves_field
     PUBLIC
         glfw
@@ -32,6 +33,7 @@ target_link_libraries(waves_field
         Vulkan::Loader
         magic_enum::magic_enum
         fmt::fmt
+        stb::stb
 )
 
 install(TARGETS waves_field DESTINATION "."
