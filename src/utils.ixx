@@ -125,9 +125,28 @@ export template <std::floating_point T> constexpr bool is_equal(T&& a, T&& b)
     return std::abs(a - b) < std::numeric_limits<T>::epsilon() * std::abs(a);
 }
 
-export template <std::integral To, std::integral From> To to(From&& from)
+export template <std::integral To, std::integral From> To to(From from)
 {
-    // TODO: add runtime checks in case signed/unsigned conversions
+    if constexpr (std::signed_integral<From> != std::signed_integral<To>)
+    {
+        if constexpr (std::signed_integral<From>)
+        {
+            assert(from >= 0 && static_cast<std::make_unsigned_t<From>>(from) <=
+                                    std::numeric_limits<To>::max());
+        }
+        else
+        {
+            assert(from <= static_cast<From>(std::numeric_limits<To>::max()));
+        }
+    }
+    else
+    {
+        if constexpr (sizeof(From) > sizeof(To))
+        {
+            assert(from >= std::numeric_limits<To>::min() &&
+                   from <= std::numeric_limits<To>::max());
+        }
+    }
     return static_cast<To>(from);
 }
 } // namespace wf
