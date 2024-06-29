@@ -10,7 +10,7 @@ function(wf_add_shaders TARGET)
     foreach (SHADER ${PARSE_ARGS_SOURCES})
         get_filename_component(FILE_NAME ${SHADER} NAME)
         get_filename_component(ABSOLUTE_PATH ${SHADER} ABSOLUTE)
-        set(SHADER_OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/${FILE_NAME}.spv")
+        set(SHADER_OUTPUT "${CMAKE_CURRENT_SOURCE_DIR}/${FILE_NAME}.spv")
         add_custom_command(
             OUTPUT ${SHADER_OUTPUT}
             COMMAND glslc ${ABSOLUTE_PATH} -o ${SHADER_OUTPUT}
