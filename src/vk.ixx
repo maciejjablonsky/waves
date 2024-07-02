@@ -112,6 +112,8 @@ export class instance : wf::non_copyable
 
     VkImage texture_image_{};
     VkDeviceMemory texture_image_memory_{};
+    VkImageView texture_image_view_{};
+    VkSampler texture_sampler_{};
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -176,6 +178,9 @@ export class instance : wf::non_copyable
                                VkImage image,
                                uint32_t width,
                                uint32_t height);
+    void create_texture_image_view_();
+    VkImageView create_image_view_(VkImage image, VkFormat format);
+    void create_texture_sampler_();
 
   public:
     bool framebuffer_resized = false;
