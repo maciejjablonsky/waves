@@ -252,6 +252,8 @@ instance::instance(window& window) : window_{window}
     create_framebuffers_();
     create_command_pool_();
     create_texture_image_();
+    create_texture_image_view_();
+    create_texture_sampler_();
     create_vertex_buffer_();
     create_index_buffer_();
     create_uniform_buffers_();
@@ -404,6 +406,8 @@ instance::~instance()
 {
     cleanup_swap_chain_();
 
+    vkDestroySampler(logical_device_, texture_sampler_, nullptr);
+    vkDestroyImageView(logical_device_, texture_image_view_, nullptr);
     vkDestroyImage(logical_device_, texture_image_, nullptr);
     vkFreeMemory(logical_device_, texture_image_memory_, nullptr);
     std::ranges::for_each(
@@ -497,8 +501,10 @@ bool instance::is_physical_device_suitable_(VkPhysicalDevice device)
         swap_chain_adequate     = not swap_chain_support.formats.empty() and
                               not swap_chain_support.present_modes.empty();
     }
+    VkPhysicalDeviceFeatures supported_features;
+    vkGetPhysicalDeviceFeatures(device, std::addressof(supported_features));
     return qf_indices.is_complete() and extensions_supported and
-           swap_chain_adequate;
+           swap_chain_adequate and supported_features.samplerAnisotropy;
 }
 
 VkSurfaceFormatKHR choose_swap_surface_format(
@@ -654,30 +660,8 @@ void instance::create_image_views_()
     swap_chain_image_views_.resize(swap_chain_images_.size());
     for (size_t i = 0; i < swap_chain_images_.size(); ++i)
     {
-        VkImageViewCreateInfo create_info{};
-        create_info.sType        = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        create_info.image        = swap_chain_images_[i];
-        create_info.viewType     = VK_IMAGE_VIEW_TYPE_2D;
-        create_info.format       = swap_chain_image_format_;
-        create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.b = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.components.a = VK_COMPONENT_SWIZZLE_IDENTITY;
-        create_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
-        create_info.subresourceRange.baseMipLevel   = 0;
-        create_info.subresourceRange.levelCount     = 1;
-        create_info.subresourceRange.baseArrayLayer = 0;
-        create_info.subresourceRange.layerCount     = 1;
-
-        if (vkCreateImageView(logical_device_,
-                              std::addressof(create_info),
-                              nullptr,
-                              std::addressof(swap_chain_image_views_[i])) !=
-            VK_SUCCESS)
-        {
-
-            throw std::runtime_error("failed to create image views!");
-        }
+        swap_chain_image_views_[i] =
+            create_image_view_(swap_chain_images_[i], swap_chain_image_format_);
     }
 }
 
@@ -1540,6 +1524,71 @@ void instance::copy_buffer_to_image_(VkBuffer buffer,
     end_single_time_commands_(command_buffer);
 }
 
+void instance::create_texture_image_view_()
+{
+    texture_image_view_ =
+        create_image_view_(texture_image_, VK_FORMAT_R8G8B8A8_SRGB);
+}
+
+VkImageView instance::create_image_view_(VkImage image, VkFormat format)
+{
+    VkImageViewCreateInfo view_info{};
+    view_info.sType    = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
+    view_info.image    = image;
+    view_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
+    view_info.format   = format;
+    view_info.subresourceRange.aspectMask     = VK_IMAGE_ASPECT_COLOR_BIT;
+    view_info.subresourceRange.baseMipLevel   = 0;
+    view_info.subresourceRange.levelCount     = 1;
+    view_info.subresourceRange.baseArrayLayer = 0;
+    view_info.subresourceRange.layerCount     = 1;
+
+    VkImageView image_view;
+    if (vkCreateImageView(logical_device_,
+                          std::addressof(view_info),
+                          nullptr,
+                          std::addressof(image_view)) != VK_SUCCESS)
+    {
+        throw std::runtime_error("failed to create texture image view!");
+    }
+
+    return image_view;
+}
+
+void instance::create_texture_sampler_()
+{
+    VkSamplerCreateInfo sampler_info{};
+    sampler_info.sType            = VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO;
+    sampler_info.magFilter        = VK_FILTER_LINEAR;
+    sampler_info.minFilter        = VK_FILTER_LINEAR;
+    sampler_info.addressModeU     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeV     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.addressModeW     = VK_SAMPLER_ADDRESS_MODE_REPEAT;
+    sampler_info.anisotropyEnable = VK_TRUE;
+
+    VkPhysicalDeviceProperties properties;
+    vkGetPhysicalDeviceProperties(physical_device_, std::addressof(properties));
+    sampler_info.maxAnisotropy = properties.limits.maxSamplerAnisotropy;
+    sampler_info.borderColor   = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    sampler_info.unnormalizedCoordinates = VK_FALSE;
+    sampler_info.borderColor             = VK_BORDER_COLOR_INT_OPAQUE_BLACK;
+    sampler_info.unnormalizedCoordinates = VK_FALSE;
+    sampler_info.compareEnable           = VK_FALSE;
+    sampler_info.compareOp               = VK_COMPARE_OP_ALWAYS;
+    sampler_info.mipmapMode              = VK_SAMPLER_MIPMAP_MODE_LINEAR;
+    sampler_info.mipLodBias              = 0.0f;
+    sampler_info.minLod                  = 0.0f;
+    sampler_info.maxLod                  = 0.f;
+
+    if (vkCreateSampler(logical_device_,
+                        std::addressof(sampler_info),
+                        nullptr,
+                        std::addressof(texture_sampler_)) != VK_SUCCESS)
+    {
+        throw std::runtime_error{"failed to create texture sampler!"};
+    }
+}
+
 void instance::create_vertex_buffer_()
 {
     VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
@@ -1635,6 +1684,7 @@ void instance::create_logical_device_()
     }
 
     VkPhysicalDeviceFeatures device_features{};
+    device_features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo create_info{};
     create_info.sType             = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
