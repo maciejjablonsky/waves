@@ -6,3 +6,5 @@ out/*
 .env
 vulkan_tutorial_en.pdf
 *.spv
+.cache/*
+.vscode/*
