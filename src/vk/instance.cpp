@@ -4,20 +4,15 @@ module;
 #include <magic_enum/magic_enum.hpp>
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
-#include <algorithm>
-#include <bitset>
-#include <chrono>
-#include <filesystem>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
-#include <print>
-#include <ranges>
-#include <set>
 
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
 module vk;
+
+import std;
 
 namespace wf::vk
 {
@@ -223,7 +218,6 @@ std::vector<const char*> get_required_extensions()
                            return available_extension_set.find(elem) !=
                                   std::end(available_extension_set);
                        }));
-
     return required_extensions;
 }
 
@@ -1166,10 +1160,19 @@ void instance::create_descriptor_set_layout_()
     ubo_layout_binding.stageFlags         = VK_SHADER_STAGE_VERTEX_BIT;
     ubo_layout_binding.pImmutableSamplers = nullptr;
 
+    VkDescriptorSetLayoutBinding sampler_layout_binding{};
+    sampler_layout_binding.binding         = 1;
+    sampler_layout_binding.descriptorCount = 1;
+    sampler_layout_binding.descriptorType =
+        VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    sampler_layout_binding.pImmutableSamplers = nullptr;
+    sampler_layout_binding.stageFlags         = VK_SHADER_STAGE_FRAGMENT_BIT;
+
+    std::array bindings = {ubo_layout_binding, sampler_layout_binding};
     VkDescriptorSetLayoutCreateInfo layout_info{};
     layout_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
-    layout_info.bindingCount = 1;
-    layout_info.pBindings    = std::addressof(ubo_layout_binding);
+    layout_info.bindingCount = wf::to<uint32_t>(bindings.size());
+    layout_info.pBindings    = bindings.data();
 
     if (vkCreateDescriptorSetLayout(logical_device_,
                                     std::addressof(layout_info),
@@ -1232,14 +1235,16 @@ void instance::update_uniform_buffer_(uint32_t current_image)
 
 void instance::create_descriptor_pool_()
 {
-    VkDescriptorPoolSize pool_size{};
-    pool_size.type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-    pool_size.descriptorCount = wf::to<uint32_t>(max_frames_in_flight);
+    std::array<VkDescriptorPoolSize, 2> pool_sizes{};
+    pool_sizes[0].type            = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+    pool_sizes[0].descriptorCount = wf::to<uint32_t>(max_frames_in_flight);
+    pool_sizes[1].type            = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+    pool_sizes[1].descriptorCount = wf::to<uint32_t>(max_frames_in_flight);
 
     VkDescriptorPoolCreateInfo pool_info{};
     pool_info.sType         = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO;
-    pool_info.poolSizeCount = 1;
-    pool_info.pPoolSizes    = std::addressof(pool_size);
+    pool_info.poolSizeCount = wf::to<uint32_t>(pool_sizes.size());
+    pool_info.pPoolSizes    = pool_sizes.data();
     pool_info.maxSets       = wf::to<uint32_t>(max_frames_in_flight);
     if (vkCreateDescriptorPool(logical_device_,
                                std::addressof(pool_info),
@@ -1275,16 +1280,34 @@ void instance::create_descriptor_sets_()
         buffer_info.offset = 0;
         buffer_info.range  = sizeof(uniform_buffer_object);
 
-        VkWriteDescriptorSet descriptor_write{};
-        descriptor_write.sType      = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
-        descriptor_write.dstSet     = descriptor_sets_[i];
-        descriptor_write.dstBinding = 0;
-        descriptor_write.dstArrayElement = 0;
-        descriptor_write.descriptorType  = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
-        descriptor_write.descriptorCount = 1;
-        descriptor_write.pBufferInfo     = std::addressof(buffer_info);
-        vkUpdateDescriptorSets(
-            logical_device_, 1, std::addressof(descriptor_write), 0, nullptr);
+        VkDescriptorImageInfo image_info{};
+        image_info.imageLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+        image_info.imageView   = texture_image_view_;
+        image_info.sampler     = texture_sampler_;
+
+        std::array<VkWriteDescriptorSet, 2> descriptor_writes{};
+        descriptor_writes[0].sType  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[0].dstSet = descriptor_sets_[i];
+        descriptor_writes[0].dstBinding      = 0;
+        descriptor_writes[0].dstArrayElement = 0;
+        descriptor_writes[0].descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        descriptor_writes[0].descriptorCount = 1;
+        descriptor_writes[0].pBufferInfo     = std::addressof(buffer_info);
+
+        descriptor_writes[1].sType  = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET;
+        descriptor_writes[1].dstSet = descriptor_sets_[i];
+        descriptor_writes[1].dstBinding      = 1;
+        descriptor_writes[1].dstArrayElement = 0;
+        descriptor_writes[1].descriptorType =
+            VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER;
+        descriptor_writes[1].descriptorCount = 1;
+        descriptor_writes[1].pImageInfo      = std::addressof(image_info);
+
+        vkUpdateDescriptorSets(logical_device_,
+                               wf::to<uint32_t>(descriptor_writes.size()),
+                               descriptor_writes.data(),
+                               0,
+                               nullptr);
     }
 }
 
@@ -1734,10 +1757,10 @@ VkVertexInputBindingDescription vertex::get_binding_description()
     return binding_description;
 }
 
-std::array<VkVertexInputAttributeDescription, 2> vertex::
+std::array<VkVertexInputAttributeDescription, 3> vertex::
     get_attribute_descriptions()
 {
-    std::array<VkVertexInputAttributeDescription, 2> attribute_descriptions{};
+    std::array<VkVertexInputAttributeDescription, 3> attribute_descriptions{};
 
     attribute_descriptions[0].binding  = 0;
     attribute_descriptions[0].location = 0;
@@ -1748,6 +1771,11 @@ std::array<VkVertexInputAttributeDescription, 2> vertex::
     attribute_descriptions[1].location = 1;
     attribute_descriptions[1].format   = VK_FORMAT_R32G32B32_SFLOAT;
     attribute_descriptions[1].offset   = offsetof(vertex, color);
+
+    attribute_descriptions[2].binding  = 0;
+    attribute_descriptions[2].location = 2;
+    attribute_descriptions[2].format   = VK_FORMAT_R32G32_SFLOAT;
+    attribute_descriptions[2].offset   = offsetof(vertex, tex_coord);
 
     return attribute_descriptions;
 }

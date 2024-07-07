@@ -1,13 +1,10 @@
 module;
-#include <array>
 #include <glm/glm.hpp>
-#include <optional>
-#include <string_view>
-#include <vector>
 #include <vulkan/vulkan.h>
 
 export module vk;
 
+import std;
 import window;
 import utils;
 
@@ -24,18 +21,20 @@ export struct vertex
 {
     glm::vec2 pos;
     glm::vec3 color;
+    glm::vec2 tex_coord;
 
     static VkVertexInputBindingDescription get_binding_description();
-    static std::array<VkVertexInputAttributeDescription, 2>
+    static std::array<VkVertexInputAttributeDescription, 3>
     get_attribute_descriptions();
 };
 static_assert(std::is_standard_layout_v<vertex>,
               "vertex must be standard layout");
 
-const std::vector<vertex> vertices{{{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}},
-                                   {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}},
-                                   {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}},
-                                   {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}}};
+const std::vector<vertex> vertices{
+    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
+    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
 
 const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
 
