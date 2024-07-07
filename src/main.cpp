@@ -6,12 +6,9 @@
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
-#include <exception>
-#include <filesystem>
-#include <print>
-
 import vk;
 import window;
+import std;
 
 namespace wf
 {
