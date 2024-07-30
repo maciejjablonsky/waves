@@ -16,15 +16,11 @@ class waves_field(ConanFile):
 
     exports_sources = "CMakeLists.txt", "src/*", "shaders/*"
 
-    default_options = {
-        'boost/*:header_only': True
-    }
-
     def layout(self):
         cmake_layout(self)
 
     def requirements(self):
-        self.requires("fmt/10.1.1")
+        self.requires("fmt/11.0.1")
         self.requires("glfw/3.3.8")
         self.requires("glm/cci.20230113")
         self.requires("rapidjson/cci.20230929")
@@ -47,6 +43,8 @@ class waves_field(ConanFile):
         if self.settings.compiler == "msvc" and self.settings.build_type == 'Release':
             tc.extra_cxxflags.extend(['/O2', '/Oi', '/Ot', '/Oy', '/Ob2'])
             tc.extra_exelinkflags.extend(['/LTCG'])
+        if self.settings.compiler == "clang":
+            tc.extra_cxxflags.extend(['-Wno-deprecated-declarations'])
         tc.generate()
 
     def build(self):

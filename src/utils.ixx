@@ -32,16 +32,20 @@ static_assert(std::move_constructible<non_copyable>);
 export struct scoped_file
 {
   private:
-    std::FILE* fp_;
+    std::FILE* fp_ = nullptr;
 
   public:
-    scoped_file(auto&&... args)
+    explicit scoped_file(auto&&... args)
     {
+#if defined(_WIN32)
+        fopen_s(&fp_, std::forward<decltype(args)>(args)...);
+#else
         fp_ = std::fopen(std::forward<decltype(args)>(args)...);
+#endif
     }
     ~scoped_file();
-    operator std::FILE*();
-    operator bool();
+    explicit operator std::FILE*();
+    explicit operator bool();
 };
 
 export class unimplemented_error : public std::exception
@@ -50,8 +54,8 @@ export class unimplemented_error : public std::exception
     std::string message_;
 
   public:
-    unimplemented_error(const std::string& message);
-    const char* what() const;
+    explicit unimplemented_error(const std::string& message);
+    [[nodiscard]] const char* what() const override;
 };
 
 export template <class... Ts> struct overloaded : Ts...
@@ -94,8 +98,7 @@ struct function_traits<Ret (Class::*)(Args...) const>
     using result_type = Ret;
 
     template <std::size_t Index>
-    using argument =
-        typename std::tuple_element<Index, std::tuple<Args...>>::type;
+    using argument = std::tuple_element_t<Index, std::tuple<Args...>>;
 
     static const std::size_t arity = sizeof...(Args);
 };
@@ -105,8 +108,7 @@ struct function_traits<Ret (*)(Args...)>
 {
     using result_type = Ret;
     template <std::size_t Index>
-    using argument =
-        typename std::tuple_element<Index, std::tuple<Args...>>::type;
+    using argument = std::tuple_element_t<Index, std::tuple<Args...>>;
     static const std::size_t arity = sizeof...(Args);
 };
 
@@ -115,8 +117,7 @@ struct function_traits<Ret (Class::*)(Args...)>
 {
     using result_type = Ret;
     template <std::size_t Index>
-    using argument =
-        typename std::tuple_element<Index, std::tuple<Args...>>::type;
+    using argument = std::tuple_element_t<Index, std::tuple<Args...>>;
     static const std::size_t arity = sizeof...(Args);
 };
 
@@ -149,12 +150,17 @@ export template <std::integral To, std::integral From> To to(From from)
     }
     return static_cast<To>(from);
 }
+
+export template <typename To, typename T> To size(const T& container) noexcept
+{
+    return wf::to<To>(std::size(container));
+}
 } // namespace wf
 
 export template <>
 struct fmt::formatter<glm::vec3> : fmt::formatter<std::string>
 {
-    auto format(const glm::vec3& v, format_context& ctx) const
+    static auto format(const glm::vec3& v, format_context& ctx)
     {
         auto it = ctx.out();
         it      = std::format_to(it, "[x: {}, y: {}, z: {}]", v.x, v.y, v.z);

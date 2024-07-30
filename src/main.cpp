@@ -3,12 +3,17 @@
 #include <glm/mat4x4.hpp>
 #include <glm/vec4.hpp>
 
+#include <cstdlib>
+#include <format>
+#include <print>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
 
+#include <filesystem>
+
 import vk;
 import window;
-import std;
 
 namespace wf
 {
@@ -42,8 +47,12 @@ int main()
     {
         if (const char* cwd = std::getenv("WAVES_FIELD_WORKING_DIR"))
         {
+            std::println("Switching current working directory to {}", cwd);
             std::filesystem::current_path(cwd);
         }
+        std::println("Current working directory: {}",
+                     std::filesystem::current_path().string());
+
         wf::app app;
     }
     catch (const std::exception& e)
