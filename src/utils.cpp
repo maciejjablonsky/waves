@@ -42,12 +42,12 @@ scoped_file::~scoped_file()
         std::fclose(fp_);
     }
 }
-scoped_file::operator std::FILE*()
+scoped_file::operator std::FILE*() const
 {
     return fp_;
 }
 
-scoped_file::operator bool()
+scoped_file::operator bool() const
 {
     return fp_ != nullptr;
 }

@@ -15,6 +15,6 @@ export class window : non_copyable
   public:
     window();
     ~window();
-    operator GLFWwindow*() const;
+    operator GLFWwindow*() const; // NOLINT(*-explicit-constructor)
 };
 } // namespace wf
