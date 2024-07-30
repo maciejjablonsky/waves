@@ -1,18 +1,29 @@
 module;
+#include <algorithm>
+#include <bitset>
+#include <chrono>
 #include <fmt/color.h>
 #include <fmt/format.h>
 #include <magic_enum/magic_enum.hpp>
+#include <print>
+#include <ranges>
+#include <set>
+
 #define GLFW_INCLUDE_VULKAN
 #include <GLFW/glfw3.h>
+
+#define GLM_FORCE_RADIANS
+#define GLM_FORCE_DEPTH_ZERO_TO_ONE
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 
 #define STB_IMAGE_IMPLEMENTATION
+#include <chrono>
 #include <stb_image.h>
 
 module vk;
 
-import std;
+import utils;
 
 namespace wf::vk
 {
@@ -112,8 +123,8 @@ VkResult CreateDebugUtilsMessengerEXT(
     const VkAllocationCallbacks* pAllocator,
     VkDebugUtilsMessengerEXT* pDebugMessenger)
 {
-    auto func = (PFN_vkCreateDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        instance, "vkCreateDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkCreateDebugUtilsMessengerEXT>(
+        vkGetInstanceProcAddr(instance, "vkCreateDebugUtilsMessengerEXT"));
     if (func != nullptr)
     {
         return func(instance, pCreateInfo, pAllocator, pDebugMessenger);
@@ -128,8 +139,8 @@ void DestroyDebugUtilsMessengerEXT(VkInstance instance,
                                    VkDebugUtilsMessengerEXT debugMessenger,
                                    const VkAllocationCallbacks* pAllocator)
 {
-    auto func = (PFN_vkDestroyDebugUtilsMessengerEXT)vkGetInstanceProcAddr(
-        instance, "vkDestroyDebugUtilsMessengerEXT");
+    auto func = reinterpret_cast<PFN_vkDestroyDebugUtilsMessengerEXT>(
+        vkGetInstanceProcAddr(instance, "vkDestroyDebugUtilsMessengerEXT"));
     if (func != nullptr)
     {
         func(instance, debugMessenger, pAllocator);
@@ -212,12 +223,9 @@ std::vector<const char*> get_required_extensions()
 
     std::set<std::string_view> required_extension_set{std::from_range_t{},
                                                       required_extensions};
-    assert(std::all_of(std::begin(required_extension_set),
-                       std::end(required_extension_set),
-                       [&](const auto& elem) {
-                           return available_extension_set.find(elem) !=
-                                  std::end(available_extension_set);
-                       }));
+    assert(std::ranges::all_of(required_extension_set, [&](const auto& elem) {
+        return available_extension_set.contains(elem);
+    }));
     return required_extensions;
 }
 
@@ -225,7 +233,7 @@ static void framebuffer_resize_callback(GLFWwindow* window,
                                         int width,
                                         int height)
 {
-    auto app = reinterpret_cast<instance*>(glfwGetWindowUserPointer(window));
+    auto app = static_cast<instance*>(glfwGetWindowUserPointer(window));
     app->framebuffer_resized = true;
 }
 
@@ -1076,7 +1084,7 @@ void instance::recreate_swap_chain_()
     int width = 0, height = 0;
     glfwGetFramebufferSize(
         window_.get(), std::addressof(width), std::addressof(height));
-    while (width = 0 || height == 0)
+    while (width == 0 || height == 0)
     {
         glfwGetFramebufferSize(
             window_.get(), std::addressof(width), std::addressof(height));
@@ -1134,8 +1142,7 @@ void instance::create_index_buffer_()
                 buffer_size,
                 0,
                 std::addressof(data));
-    std::copy(
-        std::begin(indices), std::end(indices), static_cast<uint16_t*>(data));
+    std::ranges::copy(indices, static_cast<uint16_t*>(data));
     vkUnmapMemory(logical_device_, staging_buffer_memory);
 
     create_buffer_(buffer_size,
@@ -1631,8 +1638,7 @@ void instance::create_vertex_buffer_()
                 buffer_size,
                 0,
                 std::addressof(data));
-    std::copy(
-        std::begin(vertices), std::end(vertices), static_cast<vertex*>(data));
+    std::ranges::copy(vertices, static_cast<vertex*>(data));
     vkUnmapMemory(logical_device_, staging_buffer_memory);
     create_buffer_(buffer_size,
                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1670,12 +1676,11 @@ void instance::pick_physical_device_()
     vkEnumeratePhysicalDevices(
         instance_, std::addressof(device_count), devices.data());
 
-    if (auto potential_device_it =
-            std::find_if(std::begin(devices),
-                         std::end(devices),
-                         [this](VkPhysicalDevice device) {
-                             return is_physical_device_suitable_(device);
-                         });
+    if (auto potential_device_it = std::ranges::find_if(
+            devices,
+            [this](VkPhysicalDevice device) {
+                return is_physical_device_suitable_(device);
+            });
         std::end(devices) != potential_device_it)
     {
         physical_device_ = *potential_device_it;
