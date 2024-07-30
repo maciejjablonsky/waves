@@ -22,7 +22,7 @@ struct uniform_buffer_object
 
 export struct vertex
 {
-    glm::vec2 pos;
+    glm::vec3 pos;
     glm::vec3 color;
     glm::vec2 tex_coord;
 
@@ -34,12 +34,17 @@ static_assert(std::is_standard_layout_v<vertex>,
               "vertex must be standard layout");
 
 const std::vector<vertex> vertices{
-    {{-0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, 0.5f}, {0.0f, 0.0f, 1.0f}, {0.0f, 1.0f}},
-    {{-0.5f, 0.5f}, {1.0f, 1.0f, 1.0f}, {1.0f, 1.0f}}};
+    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
 
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0};
+    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
+    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
+    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
+    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
+
+const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 using namespace std::string_view_literals;
 constexpr std::array validation_layers = {"VK_LAYER_KHRONOS_validation"};
@@ -112,6 +117,10 @@ export class instance : wf::non_copyable
     VkDescriptorPool descriptor_pool_;
     std::vector<VkDescriptorSet> descriptor_sets_;
 
+    VkImage depth_image_;
+    VkDeviceMemory depth_image_memory_;
+    VkImageView depth_image_view_;
+
     VkImage texture_image_{};
     VkDeviceMemory texture_image_memory_{};
     VkImageView texture_image_view_{};
@@ -119,7 +128,7 @@ export class instance : wf::non_copyable
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
-        VkPhysicalDevice device);
+        VkPhysicalDevice device) const;
     bool check_validation_layer_support_();
     void set_debug_messenger_();
     void create_surface_();
@@ -133,7 +142,7 @@ export class instance : wf::non_copyable
     bool check_device_extension_support_(VkPhysicalDevice device);
     void create_swap_chain_();
     void create_image_views_();
-    void create_grahpics_pipeline_();
+    void create_graphics_pipeline_();
     void create_render_pass_();
     void create_framebuffers_();
     void create_command_pool_();
@@ -181,8 +190,15 @@ export class instance : wf::non_copyable
                                uint32_t width,
                                uint32_t height);
     void create_texture_image_view_();
-    VkImageView create_image_view_(VkImage image, VkFormat format);
+    VkImageView create_image_view_(VkImage image,
+                                   VkFormat format,
+                                   VkImageAspectFlags aspect_flags);
     void create_texture_sampler_();
+    void create_depth_resources_();
+    VkFormat find_depth_format_();
+    VkFormat find_supported_format_(const std::vector<VkFormat>& candidates,
+                                    VkImageTiling tiling,
+                                    VkFormatFeatureFlags features);
 
   public:
     bool framebuffer_resized = false;
