@@ -19,7 +19,7 @@ window::~window()
     glfwTerminate();
 }
 
-window::operator GLFWwindow*()
+window::operator GLFWwindow*() const
 {
     return window_;
 }

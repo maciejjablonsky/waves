@@ -12,10 +12,9 @@ export class window : non_copyable
   private:
     GLFWwindow* window_ = nullptr;
 
-
   public:
     window();
     ~window();
-    operator GLFWwindow*();
+    operator GLFWwindow*() const;
 };
 } // namespace wf
