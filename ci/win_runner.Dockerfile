@@ -18,13 +18,24 @@ RUN Invoke-WebRequest -Uri https://aka.ms/vs/17/release/vs_buildtools.exe -OutFi
     C:\TEMP\vs_buildtools.exe --quiet --wait --norestart --nocache `
     --installPath C:\BuildTools --config C:\TEMP\.vsconfig
 
+ENV LLVM_VERSION=18.1.8
+
+RUN Invoke-WebRequest -Uri https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/LLVM-$env:LLVM_VERSION-win64.exe -OutFile LLVM-$env:LLVM_VERSION-win64.exe ; `
+    Start-Process -Wait -NoNewWindow -FilePath .\LLVM-$env:LLVM_VERSION-win64.exe -ArgumentList '/S'; `
+    Remove-Item -Force LLVM-$env:LLVM_VERSION-win64.exe
+
+RUN setx /M PATH $($env:PATH + ';C:\\Program Files\\LLVM\\bin');
+
+RUN clang --version | Select-String -Pattern 'clang version $env:LLVM_VERSION'; `
+    if ($LASTEXITCODE -ne 0) { exit 1 }
+
 # Set environment variables
 ENV VULKAN_SDK_VERSION=1.3.280.0
 
 ENV VULKAN_SDK_INSTALLER=C:\VulkanSDK-${VULKAN_SDK_VERSION}-Installer.exe
 
 # Download the Vulkan SDK installer
-ADD https://sdk.lunarg.com/sdk/download/${VULKAN_SDK_VERSION}/windows/VulkanSDK-${VULKAN_SDK_VERSION}-Installer.exe ${VULKAN_SDK_INSTALLER}
+RUN Invoke-WebRequest -Uri https://sdk.lunarg.com/sdk/download/$env:VULKAN_SDK_VERSION/windows/VulkanSDK-$env:VULKAN_SDK_VERSION-Installer.exe -OutFile $env:VULKAN_SDK_INSTALLER;
 
 # Set up environment variables for Vulkan
 ENV VULKAN_SDK=C:\VulkanSDK\${VULKAN_SDK_VERSION}
