@@ -44,11 +44,11 @@ export struct scoped_file
 #endif
     }
     ~scoped_file();
-    explicit operator std::FILE*();
-    explicit operator bool();
+    explicit operator std::FILE*() const;
+    explicit operator bool() const;
 };
 
-export class unimplemented_error : public std::exception
+export class unimplemented_error final : public std::exception
 {
   private:
     std::string message_;
