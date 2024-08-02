@@ -32,7 +32,7 @@ class waves_field(ConanFile):
         self.requires("freetype/2.13.2")
         self.requires("boost/1.84.0")
         self.requires("range-v3/0.12.0")
-        self.requires("vulkan-loader/1.3.268.0")
+        self.requires("vulkan-loader/1.3.290.0")
         self.requires("stb/cci.20240213")
 
     def generate(self):

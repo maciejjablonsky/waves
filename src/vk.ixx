@@ -29,22 +29,10 @@ export struct vertex
     static VkVertexInputBindingDescription get_binding_description();
     static std::array<VkVertexInputAttributeDescription, 3>
     get_attribute_descriptions();
+    bool operator==(const vertex& other) const;
 };
 static_assert(std::is_standard_layout_v<vertex>,
               "vertex must be standard layout");
-
-const std::vector<vertex> vertices{
-    {{-0.5f, -0.5f, 0.0f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, 0.0f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, 0.0f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, 0.0f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}},
-
-    {{-0.5f, -0.5f, -0.5f}, {1.0f, 0.0f, 0.0f}, {0.0f, 0.0f}},
-    {{0.5f, -0.5f, -0.5f}, {0.0f, 1.0f, 0.0f}, {1.0f, 0.0f}},
-    {{0.5f, 0.5f, -0.5f}, {0.0f, 0.0f, 1.0f}, {1.0f, 1.0f}},
-    {{-0.5f, 0.5f, -0.5f}, {1.0f, 1.0f, 1.0f}, {0.0f, 1.0f}}};
-
-const std::vector<uint16_t> indices = {0, 1, 2, 2, 3, 0, 4, 5, 6, 6, 7, 4};
 
 using namespace std::string_view_literals;
 constexpr std::array validation_layers = {"VK_LAYER_KHRONOS_validation"};
@@ -106,6 +94,8 @@ export class instance : wf::non_copyable
     std::vector<VkSemaphore> render_finished_semaphores_;
     std::vector<VkFence> in_flight_fences_;
     uint32_t current_frame_ = 0;
+    std::vector<vertex> vertices_;
+    std::vector<uint32_t> indices_;
     VkBuffer vertex_buffer_;
     VkDeviceMemory vertex_buffer_memory_;
     VkBuffer index_buffer_;
@@ -136,7 +126,7 @@ export class instance : wf::non_copyable
     void create_logical_device_();
     queue_family_indices find_queue_families_(VkPhysicalDevice device);
 
-    bool is_physical_device_suitable_(VkPhysicalDevice device);
+    bool is_device_suitable_(VkPhysicalDevice device);
     VkExtent2D choose_swap_extent_(
         const VkSurfaceCapabilitiesKHR& capabilities);
     bool check_device_extension_support_(VkPhysicalDevice device);
@@ -199,6 +189,7 @@ export class instance : wf::non_copyable
     VkFormat find_supported_format_(const std::vector<VkFormat>& candidates,
                                     VkImageTiling tiling,
                                     VkFormatFeatureFlags features);
+    void load_model_();
 
   public:
     bool framebuffer_resized = false;
