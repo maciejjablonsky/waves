@@ -22,10 +22,29 @@ module;
 #include <chrono>
 #include <stb_image.h>
 
+#define TINYOBJLOADER_IMPLEMENTATION
+#include <tiny_obj_loader.h>
+
+#define GLM_ENABLE_EXPERIMENTAL
+#include <glm/gtx/hash.hpp>
+
 module vk;
 
 import utils;
 
+namespace std
+{
+template <> struct hash<wf::vk::vertex>
+{
+    static size_t operator()(wf::vk::vertex const& vertex)
+    {
+        return ((hash<glm::vec3>()(vertex.pos) ^
+                 (hash<glm::vec3>()(vertex.color) << 1)) >>
+                1) ^
+               (hash<glm::vec2>()(vertex.tex_coord) << 1);
+    }
+};
+} // namespace std
 namespace wf::vk
 {
 static VKAPI_ATTR VkBool32
@@ -194,40 +213,16 @@ void instance::create_surface_()
 
 std::vector<const char*> get_required_extensions()
 {
-    uint32_t extension_count = 0;
-    vkEnumerateInstanceExtensionProperties(
-        nullptr, std::addressof(extension_count), nullptr);
-
-    std::vector<VkExtensionProperties> available_extensions(extension_count);
-    vkEnumerateInstanceExtensionProperties(
-        nullptr, std::addressof(extension_count), available_extensions.data());
-    auto available_ext_range =
-        available_extensions |
-        std::views::transform([](const VkExtensionProperties& ep) {
-            return std::string_view{ep.extensionName};
-        });
-
-    std::set<std::string_view> available_extension_set{std::from_range_t{},
-                                                       available_ext_range};
-    std::ranges::for_each(available_ext_range,
-                          [](std::string_view v) { std::println("{}", v); });
-
-    uint32_t glfw_extension_count{};
-    const char** glfw_extensions =
-        glfwGetRequiredInstanceExtensions(std::addressof(glfw_extension_count));
-    std::vector<const char*> required_extensions(
-        glfw_extensions, glfw_extensions + glfw_extension_count);
+    uint32_t glfw_extensions_count = 0;
+    const char** glfw_extensions   = glfwGetRequiredInstanceExtensions(
+        std::addressof(glfw_extensions_count));
+    std::vector<const char*> extensions(
+        glfw_extensions, glfw_extensions + glfw_extensions_count);
     if (validation_layers_enabled)
     {
-        required_extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
+        extensions.push_back(VK_EXT_DEBUG_UTILS_EXTENSION_NAME);
     }
-
-    std::set<std::string_view> required_extension_set{std::from_range_t{},
-                                                      required_extensions};
-    assert(std::ranges::all_of(required_extension_set, [&](const auto& elem) {
-        return available_extension_set.contains(elem);
-    }));
-    return required_extensions;
+    return extensions;
 }
 
 static void framebuffer_resize_callback(GLFWwindow* window,
@@ -258,6 +253,7 @@ instance::instance(window& window) : window_{window}
     create_texture_image_();
     create_texture_image_view_();
     create_texture_sampler_();
+    load_model_();
     create_vertex_buffer_();
     create_index_buffer_();
     create_uniform_buffers_();
@@ -269,6 +265,12 @@ instance::instance(window& window) : window_{window}
 
 void instance::create_instance_()
 {
+    if (validation_layers_enabled and not check_validation_layer_support_())
+    {
+        throw std::runtime_error{
+            "validation layers requested, but not available!"};
+    }
+
     VkApplicationInfo app_info{
         .sType              = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName   = "Vulkan app",
@@ -277,12 +279,6 @@ void instance::create_instance_()
         .engineVersion      = VK_MAKE_VERSION(1, 0, 0),
         .apiVersion         = VK_API_VERSION_1_3,
     };
-
-    if (validation_layers_enabled and not check_validation_layer_support_())
-    {
-        throw std::runtime_error{
-            "validation layers requested, but not available!"};
-    }
 
     auto required_extensions = get_required_extensions();
 
@@ -493,7 +489,7 @@ queue_family_indices instance::find_queue_families_(VkPhysicalDevice device)
     return indices;
 }
 
-bool instance::is_physical_device_suitable_(VkPhysicalDevice device)
+bool instance::is_device_suitable_(VkPhysicalDevice device)
 {
     auto qf_indices           = find_queue_families_(device);
     auto extensions_supported = check_device_extension_support_(device);
@@ -516,7 +512,7 @@ VkSurfaceFormatKHR choose_swap_surface_format(
 {
     for (const auto& available_format : available_formats)
     {
-        if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB and
+        if (available_format.format == VK_FORMAT_B8G8R8A8_SRGB &&
             available_format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR)
         {
             return available_format;
@@ -580,7 +576,14 @@ auto get_available_device_extensions(VkPhysicalDevice device)
 
 bool instance::check_device_extension_support_(VkPhysicalDevice device)
 {
-    auto available_extensions = get_available_device_extensions(device);
+    uint32_t extension_count;
+    vkEnumerateDeviceExtensionProperties(
+        device, nullptr, std::addressof(extension_count), nullptr);
+    std::vector<VkExtensionProperties> available_extensions(extension_count);
+    vkEnumerateDeviceExtensionProperties(device,
+                                         nullptr,
+                                         std::addressof(extension_count),
+                                         available_extensions.data());
 
     std::set<std::string> required_extensions(std::begin(device_extensions),
                                               std::end(device_extensions));
@@ -614,6 +617,7 @@ void instance::create_swap_chain_()
         .surface          = surface_,
         .minImageCount    = image_count,
         .imageFormat      = surface_format.format,
+        .imageColorSpace  = surface_format.colorSpace,
         .imageExtent      = extent,
         .imageArrayLayers = 1,
         .imageUsage       = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
@@ -629,9 +633,7 @@ void instance::create_swap_chain_()
     }
     else
     {
-        create_info.imageSharingMode      = VK_SHARING_MODE_EXCLUSIVE;
-        create_info.queueFamilyIndexCount = 0;
-        create_info.pQueueFamilyIndices   = nullptr;
+        create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
     }
 
     create_info.preTransform = swap_chain_support.capabilities.currentTransform;
@@ -914,7 +916,6 @@ void instance::create_render_pass_()
     dependency.dstSubpass   = 0;
     dependency.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
                               VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
-    ;
     dependency.srcAccessMask = 0;
     dependency.dstStageMask  = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT |
                               VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT;
@@ -925,8 +926,9 @@ void instance::create_render_pass_()
                                                           depth_attachment};
     VkRenderPassCreateInfo render_pass_info{};
     render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_info.attachmentCount = wf::size<uint32_t>(attachments);
-    render_pass_info.pAttachments    = std::data(attachments);
+    render_pass_info.attachmentCount =
+        static_cast<uint32_t>(attachments.size());
+    render_pass_info.pAttachments    = attachments.data();
     render_pass_info.subpassCount    = 1;
     render_pass_info.pSubpasses      = std::addressof(subpass);
     render_pass_info.dependencyCount = 1;
@@ -1011,6 +1013,53 @@ VkFormat instance::find_supported_format_(
     }
 
     throw std::runtime_error("failed to find supported format!");
+}
+void instance::load_model_()
+{
+    tinyobj::attrib_t attrib;
+    std::vector<tinyobj::shape_t> shapes;
+    std::vector<tinyobj::material_t> materials;
+    std::string warn, err;
+    auto model_path = std::filesystem::path{"models"} / "viking_room.obj";
+
+    if (!tinyobj::LoadObj(std::addressof(attrib),
+                          std::addressof(shapes),
+                          std::addressof(materials),
+                          std::addressof(warn),
+                          std::addressof(err),
+                          model_path.string().c_str()))
+    {
+        throw std::runtime_error(warn + err);
+    }
+
+    std::unordered_map<vertex, uint32_t> unique_vertices{};
+    for (const auto& shape : shapes)
+    {
+        for (const auto& index : shape.mesh.indices)
+        {
+            vertex vertex{};
+            vertex.pos = {
+                attrib.vertices[3 * index.vertex_index + 0],
+                attrib.vertices[3 * index.vertex_index + 1],
+                attrib.vertices[3 * index.vertex_index + 2],
+            };
+
+            vertex.tex_coord = {
+                attrib.texcoords[2 * index.texcoord_index + 0],
+                1.f - attrib.texcoords[2 * index.texcoord_index + 1],
+            };
+
+            vertex.color = {1.f, 1.f, 1.f};
+
+            if (not unique_vertices.contains(vertex))
+            {
+                unique_vertices[vertex] = wf::to<uint32_t>(vertices_.size());
+                std::println("appended {} vertex", vertices_.size());
+                vertices_.push_back(vertex);
+            }
+            indices_.push_back(unique_vertices[vertex]);
+        }
+    }
 }
 
 VkFormat instance::find_depth_format_()
@@ -1104,7 +1153,7 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
     vkCmdBindVertexBuffers(
         command_buffer, 0, 1, vertex_buffers.data(), offsets.data());
     vkCmdBindIndexBuffer(
-        command_buffer, index_buffer_, 0, VK_INDEX_TYPE_UINT16);
+        command_buffer, index_buffer_, 0, VK_INDEX_TYPE_UINT32);
 
     VkViewport viewport{};
     viewport.x        = 0.f;
@@ -1129,7 +1178,7 @@ void instance::record_command_buffer_(VkCommandBuffer command_buffer,
                             0,
                             nullptr);
     vkCmdDrawIndexed(
-        command_buffer, wf::to<uint32_t>(indices.size()), 1, 0, 0, 0);
+        command_buffer, wf::to<uint32_t>(indices_.size()), 1, 0, 0, 0);
 
     vkCmdEndRenderPass(command_buffer);
 
@@ -1230,7 +1279,7 @@ void instance::copy_buffer_(VkBuffer src_buffer,
 
 void instance::create_index_buffer_()
 {
-    VkDeviceSize buffer_size = sizeof(indices[0]) * indices.size();
+    VkDeviceSize buffer_size = sizeof(indices_[0]) * indices_.size();
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
     create_buffer_(buffer_size,
@@ -1247,7 +1296,7 @@ void instance::create_index_buffer_()
                 buffer_size,
                 0,
                 std::addressof(data));
-    std::ranges::copy(indices, static_cast<uint16_t*>(data));
+    std::ranges::copy(indices_, static_cast<uint32_t*>(data));
     vkUnmapMemory(logical_device_, staging_buffer_memory);
 
     create_buffer_(buffer_size,
@@ -1328,9 +1377,10 @@ void instance::update_uniform_buffer_(uint32_t current_image)
                      .count();
 
     uniform_buffer_object ubo{};
-    ubo.model = glm::rotate(
-        glm::mat4(1.f), time * glm::radians(90.f), glm::vec3(0.f, 0.f, 1.f));
-    ubo.view = glm::lookAt(glm::vec3(2.f, 2.f, 2.f),
+    ubo.model = glm::rotate(glm::mat4(1.f),
+                            time * glm::radians(90.f) * 0.5f,
+                            glm::vec3(0.f, 0.f, 1.f));
+    ubo.view  = glm::lookAt(glm::vec3(2.f, 2.f, 2.f),
                            glm::vec3(0.f, 0.f, 0.f),
                            glm::vec3(0.f, 0.f, 1.f));
     ubo.proj =
@@ -1426,7 +1476,7 @@ void instance::create_descriptor_sets_()
 void instance::create_texture_image_()
 {
     int tex_width, tex_height, tex_channels;
-    auto pixels             = stbi_load("textures/statue-1275469.jpg",
+    auto pixels             = stbi_load("textures/viking_room.png",
                             std::addressof(tex_width),
                             std::addressof(tex_height),
                             std::addressof(tex_channels),
@@ -1753,7 +1803,7 @@ void instance::create_texture_sampler_()
 
 void instance::create_vertex_buffer_()
 {
-    VkDeviceSize buffer_size = sizeof(vertices[0]) * vertices.size();
+    VkDeviceSize buffer_size = sizeof(vertices_[0]) * vertices_.size();
     VkBuffer staging_buffer;
     VkDeviceMemory staging_buffer_memory;
     create_buffer_(buffer_size,
@@ -1770,7 +1820,7 @@ void instance::create_vertex_buffer_()
                 buffer_size,
                 0,
                 std::addressof(data));
-    std::ranges::copy(vertices, static_cast<vertex*>(data));
+    std::ranges::copy(vertices_, static_cast<vertex*>(data));
     vkUnmapMemory(logical_device_, staging_buffer_memory);
     create_buffer_(buffer_size,
                    VK_BUFFER_USAGE_TRANSFER_DST_BIT |
@@ -1808,11 +1858,11 @@ void instance::pick_physical_device_()
     vkEnumeratePhysicalDevices(
         instance_, std::addressof(device_count), devices.data());
 
-    if (auto potential_device_it = std::ranges::find_if(
-            devices,
-            [this](VkPhysicalDevice device) {
-                return is_physical_device_suitable_(device);
-            });
+    if (auto potential_device_it =
+            std::ranges::find_if(devices,
+                                 [this](VkPhysicalDevice device) {
+                                     return is_device_suitable_(device);
+                                 });
         std::end(devices) != potential_device_it)
     {
         physical_device_ = *potential_device_it;
@@ -1828,30 +1878,34 @@ void instance::pick_physical_device_()
 void instance::create_logical_device_()
 {
     queue_family_indices indices = find_queue_families_(physical_device_);
+
     std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
     std::set<uint32_t> unique_queue_families = {indices.graphics_family.value(),
                                                 indices.present_family.value()};
 
-    float queue_priority = 1.f;
+    float queue_priority = 1.0f;
     for (uint32_t queue_family : unique_queue_families)
     {
-        VkDeviceQueueCreateInfo& queue_create_info =
-            queue_create_infos.emplace_back();
+        VkDeviceQueueCreateInfo queue_create_info{};
         queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-        queue_create_info.queueFamilyIndex = indices.graphics_family.value();
+        queue_create_info.queueFamilyIndex = queue_family;
         queue_create_info.queueCount       = 1;
         queue_create_info.pQueuePriorities = std::addressof(queue_priority);
+        queue_create_infos.push_back(queue_create_info);
     }
 
     VkPhysicalDeviceFeatures device_features{};
     device_features.samplerAnisotropy = VK_TRUE;
 
     VkDeviceCreateInfo create_info{};
-    create_info.sType             = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
-    create_info.pQueueCreateInfos = queue_create_infos.data();
+    create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+
     create_info.queueCreateInfoCount =
         static_cast<uint32_t>(queue_create_infos.size());
+    create_info.pQueueCreateInfos = queue_create_infos.data();
+
     create_info.pEnabledFeatures = std::addressof(device_features);
+
     create_info.enabledExtensionCount =
         static_cast<uint32_t>(device_extensions.size());
     create_info.ppEnabledExtensionNames = device_extensions.data();
@@ -1872,7 +1926,7 @@ void instance::create_logical_device_()
                        nullptr,
                        std::addressof(logical_device_)) != VK_SUCCESS)
     {
-        throw std::runtime_error{"failed to create logical device!"};
+        throw std::runtime_error("failed to create logical device!");
     }
 
     vkGetDeviceQueue(logical_device_,
@@ -1915,6 +1969,12 @@ std::array<VkVertexInputAttributeDescription, 3> vertex::
     attribute_descriptions[2].offset   = offsetof(vertex, tex_coord);
 
     return attribute_descriptions;
+}
+
+bool vertex::operator==(const vertex& other) const
+{
+    return pos == other.pos && color == other.color &&
+           tex_coord == other.tex_coord;
 }
 
 uint32_t instance::find_memory_type_(uint32_t type_filter,
