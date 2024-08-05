@@ -111,6 +111,7 @@ export class instance : wf::non_copyable
     VkDeviceMemory depth_image_memory_;
     VkImageView depth_image_view_;
 
+    uint32_t mip_levels_{};
     VkImage texture_image_{};
     VkDeviceMemory texture_image_memory_{};
     VkImageView texture_image_view_{};
@@ -163,6 +164,7 @@ export class instance : wf::non_copyable
     void create_texture_image_();
     void create_image_(uint32_t width,
                        uint32_t heigth,
+                       uint32_t mip_levels,
                        VkFormat format,
                        VkImageTiling tiling,
                        VkImageUsageFlags usage,
@@ -174,7 +176,8 @@ export class instance : wf::non_copyable
     void transition_image_layout_(VkImage image,
                                   VkFormat format,
                                   VkImageLayout old_layout,
-                                  VkImageLayout new_layout);
+                                  VkImageLayout new_layout,
+                                  uint32_t mip_levels);
     void copy_buffer_to_image_(VkBuffer buffer,
                                VkImage image,
                                uint32_t width,
@@ -182,7 +185,8 @@ export class instance : wf::non_copyable
     void create_texture_image_view_();
     VkImageView create_image_view_(VkImage image,
                                    VkFormat format,
-                                   VkImageAspectFlags aspect_flags);
+                                   VkImageAspectFlags aspect_flags,
+                                   uint32_t mip_levels);
     void create_texture_sampler_();
     void create_depth_resources_();
     VkFormat find_depth_format_();
@@ -190,6 +194,11 @@ export class instance : wf::non_copyable
                                     VkImageTiling tiling,
                                     VkFormatFeatureFlags features);
     void load_model_();
+    void generate_mip_maps_(VkImage image,
+                            VkFormat image_format,
+                            int32_t tex_widht,
+                            int32_t tex_height,
+                            uint32_t mip_levels);
 
   public:
     bool framebuffer_resized = false;
