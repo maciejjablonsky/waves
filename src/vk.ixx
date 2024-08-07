@@ -71,41 +71,30 @@ export class instance : wf::non_copyable
     VkDebugUtilsMessengerEXT debug_messenger_ = VK_NULL_HANDLE;
     VkSurfaceKHR surface_                     = VK_NULL_HANDLE;
 
-    VkPhysicalDevice physical_device_ = VK_NULL_HANDLE;
-    VkDevice logical_device_          = VK_NULL_HANDLE;
+    VkPhysicalDevice physical_device_   = VK_NULL_HANDLE;
+    VkSampleCountFlagBits msaa_samples_ = VK_SAMPLE_COUNT_1_BIT;
+    VkDevice logical_device_            = VK_NULL_HANDLE;
 
-    VkQueue graphics_queue_    = VK_NULL_HANDLE;
-    VkQueue present_queue_     = VK_NULL_HANDLE;
+    VkQueue graphics_queue_ = VK_NULL_HANDLE;
+    VkQueue present_queue_  = VK_NULL_HANDLE;
+
     VkSwapchainKHR swap_chain_ = VK_NULL_HANDLE;
     std::vector<VkImage> swap_chain_images_;
     VkFormat swap_chain_image_format_;
     VkExtent2D swap_chain_extent_;
     std::vector<VkImageView> swap_chain_image_views_;
+    std::vector<VkFramebuffer> swap_chain_framebuffers_;
 
     VkRenderPass render_pass_;
     VkDescriptorSetLayout descriptor_set_layout_;
     VkPipelineLayout pipeline_layout_;
     VkPipeline graphics_pipeline_;
-    std::vector<VkFramebuffer> swap_chain_framebuffers_;
+
     VkCommandPool command_pool_;
-    std::vector<VkCommandBuffer> command_buffers_;
 
-    std::vector<VkSemaphore> image_available_semaphores_;
-    std::vector<VkSemaphore> render_finished_semaphores_;
-    std::vector<VkFence> in_flight_fences_;
-    uint32_t current_frame_ = 0;
-    std::vector<vertex> vertices_;
-    std::vector<uint32_t> indices_;
-    VkBuffer vertex_buffer_;
-    VkDeviceMemory vertex_buffer_memory_;
-    VkBuffer index_buffer_;
-    VkDeviceMemory index_buffer_memory_;
-
-    std::vector<VkBuffer> uniform_buffers_;
-    std::vector<VkDeviceMemory> uniform_buffers_memory_;
-    std::vector<void*> uniform_buffers_mapped_;
-    VkDescriptorPool descriptor_pool_;
-    std::vector<VkDescriptorSet> descriptor_sets_;
+    VkImage color_image_;
+    VkDeviceMemory color_image_memory_;
+    VkImageView color_image_view_;
 
     VkImage depth_image_;
     VkDeviceMemory depth_image_memory_;
@@ -116,6 +105,27 @@ export class instance : wf::non_copyable
     VkDeviceMemory texture_image_memory_{};
     VkImageView texture_image_view_{};
     VkSampler texture_sampler_{};
+
+    std::vector<vertex> vertices_;
+    std::vector<uint32_t> indices_;
+    VkBuffer vertex_buffer_;
+    VkDeviceMemory vertex_buffer_memory_;
+    VkBuffer index_buffer_;
+    VkDeviceMemory index_buffer_memory_;
+
+    std::vector<VkBuffer> uniform_buffers_;
+    std::vector<VkDeviceMemory> uniform_buffers_memory_;
+    std::vector<void*> uniform_buffers_mapped_;
+
+    VkDescriptorPool descriptor_pool_;
+    std::vector<VkDescriptorSet> descriptor_sets_;
+
+    std::vector<VkCommandBuffer> command_buffers_;
+
+    std::vector<VkSemaphore> image_available_semaphores_;
+    std::vector<VkSemaphore> render_finished_semaphores_;
+    std::vector<VkFence> in_flight_fences_;
+    uint32_t current_frame_ = 0;
 
     void create_instance_();
     swap_chain_support_details query_swap_chain_support_(
@@ -165,6 +175,7 @@ export class instance : wf::non_copyable
     void create_image_(uint32_t width,
                        uint32_t heigth,
                        uint32_t mip_levels,
+                       VkSampleCountFlagBits num_samples,
                        VkFormat format,
                        VkImageTiling tiling,
                        VkImageUsageFlags usage,
@@ -199,6 +210,8 @@ export class instance : wf::non_copyable
                             int32_t tex_widht,
                             int32_t tex_height,
                             uint32_t mip_levels);
+    void create_color_resources_();
+    VkSampleCountFlagBits get_max_usable_sample_count_();
 
   public:
     bool framebuffer_resized = false;
