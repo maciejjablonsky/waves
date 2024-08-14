@@ -37,7 +37,7 @@ namespace std
 {
 template <> struct hash<wf::vk::vertex>
 {
-    static size_t operator()(wf::vk::vertex const& vertex)
+    size_t operator()(const wf::vk::vertex& vertex) const
     {
         return ((hash<glm::vec3>()(vertex.pos) ^
                  (hash<glm::vec3>()(vertex.color) << 1)) >>
