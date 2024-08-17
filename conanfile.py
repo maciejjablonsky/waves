@@ -24,7 +24,7 @@ class waves_field(ConanFile):
         self.requires("glfw/3.3.8")
         self.requires("glm/cci.20230113")
         self.requires("rapidjson/cci.20230929")
-        self.requires("entt/3.12.2")
+        self.requires("entt/3.13.2")
         self.requires("tinyobjloader/2.0.0-rc10")
         self.requires("ms-gsl/4.0.0")
         # self.requires("mp-units/2.1.0")

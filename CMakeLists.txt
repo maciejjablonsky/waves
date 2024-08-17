@@ -1,5 +1,6 @@
 cmake_minimum_required(VERSION 3.30.0 FATAL_ERROR)
-project(waves_field CXX)
+
+project(waves_field LANGUAGES CXX)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
 add_subdirectory(shaders)
@@ -15,6 +16,9 @@ target_sources(waves_field
         PUBLIC FILE_SET CXX_MODULES FILES
         src/utils.ixx
         src/glfw.ixx
+        src/systems.ixx
+        src/systems/input.ixx
+        src/callback_interfaces.ixx
 )
 
 find_package(glfw3 REQUIRED CONFIG)
@@ -24,6 +28,7 @@ find_package(magic_enum REQUIRED CONFIG)
 find_package(fmt REQUIRED CONFIG)
 find_package(stb REQUIRED CONFIG)
 find_package(tinyobjloader REQUIRED CONFIG)
+find_package(EnTT REQUIRED CONFIG)
 target_link_libraries(waves_field
         PUBLIC
         glfw
@@ -33,6 +38,7 @@ target_link_libraries(waves_field
         fmt::fmt
         stb::stb
         tinyobjloader::tinyobjloader
+        EnTT::EnTT
 )
 
 install(TARGETS waves_field DESTINATION "."
