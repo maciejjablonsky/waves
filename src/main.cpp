@@ -10,31 +10,27 @@
 
 #include <filesystem>
 
-import vk;
-import window;
+import glfw;
 
 namespace wf
 {
+using namespace std::string_literals;
 class app
 {
   private:
-    window window_;
-    vk::instance vk_instance_{window_};
+    glfw glfw_instance_;
 
   public:
     app()
+        : glfw_instance_({.window_width  = 800,
+                          .window_height = 600,
+                          .window_title  = "world simulator"s,
+                          .fullscreen    = true})
     {
-        while (!glfwWindowShouldClose(window_))
+        while (not glfw_instance_.should_window_close())
         {
             glfwPollEvents();
-            draw_frame();
         }
-        vk_instance_.wait_device_idle();
-    }
-
-    void draw_frame()
-    {
-        vk_instance_.draw_frame();
     }
 };
 } // namespace wf
@@ -56,7 +52,7 @@ int main()
     catch (const std::exception& e)
     {
         std::print("{}", e.what());
-        return 1;
+        return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }

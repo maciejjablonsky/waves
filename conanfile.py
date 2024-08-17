@@ -29,7 +29,7 @@ class waves_field(ConanFile):
         self.requires("ms-gsl/4.0.0")
         # self.requires("mp-units/2.1.0")
         self.requires("magic_enum/0.9.5")
-        self.requires("freetype/2.13.2")
+        # self.requires("freetype/2.13.2")
         self.requires("boost/1.84.0")
         self.requires("range-v3/0.12.0")
         self.requires("vulkan-loader/1.3.290.0")
