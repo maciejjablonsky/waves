@@ -2,39 +2,38 @@
 #define GLM_FORCE_DEPTH_ZERO_TO_ONE
 
 #include <cstdlib>
+#include <entt/entt.hpp>
+#include <filesystem>
 #include <format>
 #include <print>
 
-#define GLFW_INCLUDE_VULKAN
-#include <GLFW/glfw3.h>
-
-#include <filesystem>
-
-import vk;
-import window;
+import glfw;
+import systems;
 
 namespace wf
 {
+using namespace std::string_literals;
 class app
 {
-  private:
-    window window_;
-    vk::instance vk_instance_{window_};
-
   public:
     app()
     {
-        while (!glfwWindowShouldClose(window_))
-        {
-            glfwPollEvents();
-            draw_frame();
-        }
-        vk_instance_.wait_device_idle();
-    }
+        glfw glfw_instance({.window_width  = 800,
+                            .window_height = 600,
+                            .window_title  = "worlds simulator"s,
+                            .fullscreen    = false});
 
-    void draw_frame()
-    {
-        vk_instance_.draw_frame();
+        entt::registry ecs;
+        entt::entity settings = ecs.create();
+
+        systems::input input_system({settings});
+        glfw_instance.register_key_handler(input_system);
+
+        while (input_system.is_window_open())
+        {
+            glfw_instance.poll_events();
+            input_system.update(ecs);
+        }
     }
 };
 } // namespace wf
@@ -56,7 +55,7 @@ int main()
     catch (const std::exception& e)
     {
         std::print("{}", e.what());
-        return 1;
+        return EXIT_FAILURE;
     }
-    return 0;
+    return EXIT_SUCCESS;
 }
