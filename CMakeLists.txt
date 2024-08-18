@@ -19,6 +19,10 @@ target_sources(waves_field
         src/systems.ixx
         src/systems/input.ixx
         src/callback_interfaces.ixx
+        src/systems/pc_input.ixx
+        src/systems/system.ixx
+        src/systems/key.ixx
+        src/commands/commands.ixx
 )
 
 find_package(glfw3 REQUIRED CONFIG)
@@ -29,6 +33,8 @@ find_package(fmt REQUIRED CONFIG)
 find_package(stb REQUIRED CONFIG)
 find_package(tinyobjloader REQUIRED CONFIG)
 find_package(EnTT REQUIRED CONFIG)
+find_package(Boost REQUIRED CONFIG)
+
 target_link_libraries(waves_field
         PUBLIC
         glfw
@@ -39,6 +45,7 @@ target_link_libraries(waves_field
         stb::stb
         tinyobjloader::tinyobjloader
         EnTT::EnTT
+        Boost::boost
 )
 
 install(TARGETS waves_field DESTINATION "."

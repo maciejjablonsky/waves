@@ -24,11 +24,12 @@ class app
                             .fullscreen    = false});
 
         entt::registry ecs;
+        entt::entity settings = ecs.create();
 
-        systems::input input_system;
+        systems::input input_system({settings});
         glfw_instance.register_key_handler(input_system);
 
-        while (not glfw_instance.should_window_close())
+        while (input_system.is_window_open())
         {
             glfw_instance.poll_events();
             input_system.update(ecs);
